@@ -1,36 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Sparkles, User, LogOut, Crown, Users, Download, Eye, EyeOff } from 'lucide-react';
+import { Sparkles, User, LogOut, Crown, Users, Download } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-interface UsageStats {
-  lookupsUsed: number;
-  lookupsLimit: number;
-  generationsUsed: number;
-  generationsLimit: number;
-  plan: 'free' | 'plus' | 'team';
-}
+import { useUsageStats } from '@/hooks/useUsageStats';
+import { supabase } from '@/integrations/supabase/client';
 const Account = () => {
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [usage, setUsage] = useState<UsageStats>({
-    lookupsUsed: 2,
-    lookupsLimit: 5,
-    generationsUsed: 1,
-    generationsLimit: 3,
-    plan: 'free'
-  });
-  const {
-    user,
-    signOut
-  } = useAuth();
-  useEffect(() => {
-    if (user) {
-      // TODO: Load actual usage stats from API
-    }
-  }, [user]);
+  const { user, signOut } = useAuth();
+  const usage = useUsageStats();
   if (!user) {
     return <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="w-full max-w-md">
@@ -48,22 +28,39 @@ const Account = () => {
   }
   const getPlanBadge = (plan: string) => {
     switch (plan) {
-      case 'plus':
-        return <Badge className="bg-primary text-primary-foreground"><Crown className="w-3 h-3 mr-1" />Plus</Badge>;
-      case 'team':
-        return <Badge className="bg-primary text-primary-foreground"><Users className="w-3 h-3 mr-1" />Team</Badge>;
+      case 'SearchPro':
+        return <Badge className="bg-primary text-primary-foreground"><Crown className="w-3 h-3 mr-1" />SearchPro</Badge>;
+      case 'LabPro':
+        return <Badge className="bg-primary text-primary-foreground"><Users className="w-3 h-3 mr-1" />LabPro</Badge>;
       default:
         return <Badge variant="secondary">Free</Badge>;
     }
   };
+  
   const getPlanFeatures = (plan: string) => {
     switch (plan) {
-      case 'plus':
-        return ['Unlimited lookups', 'Unlimited generations', 'Favorites export (CSV)', 'Parent Mode', 'Share cards with OG images'];
-      case 'team':
-        return ['Everything in Plus', '5 team seats', 'Shared collections', 'Moderation view', 'Advanced exports'];
+      case 'SearchPro':
+        return ['Unlimited searches', '1 creation per week', 'Advanced features'];
+      case 'LabPro':
+        return ['Unlimited searches', 'Unlimited creations', 'Advanced features'];
       default:
-        return ['5 lookups per day', '3 generations per day', 'Basic features only'];
+        return ['3 searches per day', '1 creation per week'];
+    }
+  };
+
+  const handleUpgrade = async (priceId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        body: { priceId }
+      });
+      
+      if (error) throw error;
+      
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (error) {
+      console.error('Error creating checkout:', error);
     }
   };
   return <div className="min-h-screen bg-background">
@@ -149,9 +146,12 @@ const Account = () => {
                   {getPlanFeatures(usage.plan).map((feature, index) => <li key={index}>• {feature}</li>)}
                 </ul>
               </div>
-              {usage.plan === 'free' && <Button className="w-full">
+              {usage.plan === 'Free' && <Button 
+                  className="w-full"
+                  onClick={() => handleUpgrade('price_1S8uzhDt8zpU0lE0erSCXXc1')}
+                >
                   <Crown className="w-4 h-4 mr-2" />
-                  Upgrade to Plus
+                  Upgrade to SearchPro
                 </Button>}
             </CardContent>
           </Card>
@@ -159,68 +159,39 @@ const Account = () => {
           {/* Usage Stats */}
           <Card>
             <CardHeader>
-              <CardTitle>Usage Today</CardTitle>
-              <CardDescription>Your daily limits and usage</CardDescription>
+              <CardTitle>Usage Stats</CardTitle>
+              <CardDescription>Your current limits and usage</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Lookups</span>
+                  <span className="text-sm font-medium">Searches (Daily)</span>
                   <span className="text-sm text-muted-foreground">
-                    {usage.lookupsUsed} / {usage.lookupsLimit === -1 ? '∞' : usage.lookupsLimit}
+                    {usage.searchesUsed} / {usage.searchesLimit === -1 ? '∞' : usage.searchesLimit}
                   </span>
                 </div>
-                <Progress value={usage.lookupsLimit === -1 ? 0 : usage.lookupsUsed / usage.lookupsLimit * 100} className="h-2" />
+                <Progress value={usage.searchesLimit === -1 ? 0 : usage.searchesUsed / usage.searchesLimit * 100} className="h-2" />
               </div>
               
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Generations</span>
+                  <span className="text-sm font-medium">Creations (Weekly)</span>
                   <span className="text-sm text-muted-foreground">
-                    {usage.generationsUsed} / {usage.generationsLimit === -1 ? '∞' : usage.generationsLimit}
+                    {usage.creationsUsed} / {usage.creationsLimit === -1 ? '∞' : usage.creationsLimit}
                   </span>
                 </div>
-                <Progress value={usage.generationsLimit === -1 ? 0 : usage.generationsUsed / usage.generationsLimit * 100} className="h-2" />
+                <Progress value={usage.creationsLimit === -1 ? 0 : usage.creationsUsed / usage.creationsLimit * 100} className="h-2" />
               </div>
 
-              <p className="text-xs text-muted-foreground">
-                Limits reset daily at midnight UTC
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* API Access */}
-          <Card>
-            <CardHeader>
-              <CardTitle>API Access</CardTitle>
-              <CardDescription>For developers and integrations</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">API Key</label>
-                <div className="flex items-center space-x-2">
-                  <code className="flex-1 text-sm p-2 bg-muted rounded border font-mono">
-                    {showApiKey ? 'sk-...' + user.id?.slice(-8) : '••••••••••••••••'}
-                  </code>
-                  <Button variant="outline" size="sm" onClick={() => setShowApiKey(!showApiKey)}>
-                    {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Use this key to access the SlangLab API programmatically
-                </p>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>• Search limits reset daily at midnight UTC</p>
+                <p>• Creation limits reset weekly on Monday</p>
               </div>
-              
-              {usage.plan === 'free' && <div className="p-3 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground">
-                    API access is limited on the free plan. Upgrade for higher rate limits.
-                  </p>
-                </div>}
             </CardContent>
           </Card>
 
           {/* Data Export */}
-          {(usage.plan === 'plus' || usage.plan === 'team') && <Card className="md:col-span-2">
+          {(usage.plan === 'SearchPro' || usage.plan === 'LabPro') && <Card className="md:col-span-2">
               <CardHeader>
                 <CardTitle>Data Export</CardTitle>
                 <CardDescription>Download your data</CardDescription>
@@ -244,7 +215,7 @@ const Account = () => {
             </Card>}
 
           {/* Plan Upgrade */}
-          {usage.plan === 'free' && <Card className="md:col-span-2">
+          {usage.plan === 'Free' && <Card className="md:col-span-2">
               <CardHeader>
                 <CardTitle>Upgrade Your Experience</CardTitle>
                 <CardDescription>Unlock unlimited usage and advanced features</CardDescription>
@@ -253,40 +224,49 @@ const Account = () => {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-semibold">Plus Plan</h3>
+                      <h3 className="font-semibold">SearchPro</h3>
                       <Badge className="bg-primary text-primary-foreground">
-                        <Crown className="w-3 h-3 mr-1" />Plus
+                        <Crown className="w-3 h-3 mr-1" />SearchPro
                       </Badge>
                     </div>
                     <div className="space-y-2 mb-4">
-                      <p className="text-2xl font-bold">$7<span className="text-sm font-normal">/month</span></p>
+                      <p className="text-2xl font-bold">$3<span className="text-sm font-normal">/month</span></p>
                       <ul className="text-sm text-muted-foreground space-y-1">
-                        <li>• Unlimited lookups & generations</li>
-                        <li>• CSV exports</li>
-                        <li>• Share cards with OG images</li>
-                        <li>• Parent Mode</li>
+                        <li>• Unlimited searches</li>
+                        <li>• 1 creation per week</li>
+                        <li>• Advanced features</li>
                       </ul>
                     </div>
-                    <Button className="w-full">Upgrade to Plus</Button>
+                    <Button 
+                      className="w-full" 
+                      onClick={() => handleUpgrade('price_1S8uzhDt8zpU0lE0erSCXXc1')}
+                    >
+                      Upgrade to SearchPro
+                    </Button>
                   </div>
 
                   <div className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-semibold">Team Plan</h3>
+                      <h3 className="font-semibold">LabPro</h3>
                       <Badge className="bg-primary text-primary-foreground">
-                        <Users className="w-3 h-3 mr-1" />Team
+                        <Users className="w-3 h-3 mr-1" />LabPro
                       </Badge>
                     </div>
                     <div className="space-y-2 mb-4">
-                      <p className="text-2xl font-bold">$29<span className="text-sm font-normal">/month</span></p>
+                      <p className="text-2xl font-bold">$5<span className="text-sm font-normal">/month</span></p>
                       <ul className="text-sm text-muted-foreground space-y-1">
-                        <li>• Everything in Plus</li>
-                        <li>• 5 team seats</li>
-                        <li>• Shared collections</li>
-                        
+                        <li>• Unlimited searches</li>
+                        <li>• Unlimited creations</li>
+                        <li>• Advanced features</li>
                       </ul>
                     </div>
-                    <Button className="w-full" variant="outline">Upgrade to Team</Button>
+                    <Button 
+                      className="w-full" 
+                      variant="outline"
+                      onClick={() => handleUpgrade('price_1S8uztDt8zpU0lE0z8emJyw3')}
+                    >
+                      Upgrade to LabPro
+                    </Button>
                   </div>
                 </div>
               </CardContent>
