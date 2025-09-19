@@ -32,3 +32,6 @@ verify_jwt = true
 
 [functions.log-share]
 verify_jwt = true
+
+[functions.monitor-shared-slang]
+verify_jwt = true

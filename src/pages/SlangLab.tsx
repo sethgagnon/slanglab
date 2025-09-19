@@ -26,6 +26,8 @@ import { SlangMonitoringDashboard } from '@/components/SlangMonitoringDashboard'
 import { useUsageStats } from '@/hooks/useUsageStats';
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt';
 import { ManualSlangForm } from '@/components/ManualSlangForm';
+import { ReportButton } from '@/components/ReportButton';
+import { AgeVerificationModal } from '@/components/AgeVerificationModal';
 
 
 interface Creation {
@@ -52,6 +54,7 @@ const SlangLab = () => {
   const [loading, setLoading] = useState(false);
   const [creations, setCreations] = useState<Creation[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [showAgeVerification, setShowAgeVerification] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<{
     isFromAI: boolean;
     message: string;
@@ -68,7 +71,7 @@ const SlangLab = () => {
 
   const hasLabProAccess = isAdmin || plan === 'LabPro';
 
-  // Fetch user profile to check plan status
+  // Fetch user profile and check age verification
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (!user) return;
@@ -76,12 +79,16 @@ const SlangLab = () => {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('plan, role')
+          .select('plan, role, age_verified, birth_date, safe_mode')
           .eq('user_id', user.id)
           .single();
 
         if (!error && data) {
           setUserProfile(data);
+          
+          if (!data.age_verified) {
+            setShowAgeVerification(true);
+          }
         }
       } catch (error) {
         console.error('Error fetching user profile:', error);
@@ -90,6 +97,18 @@ const SlangLab = () => {
 
     fetchUserProfile();
   }, [user]);
+
+  const handleAgeVerificationComplete = (isMinor: boolean) => {
+    setShowAgeVerification(false);
+    setUserProfile(prev => ({ ...prev, age_verified: true, safe_mode: isMinor }));
+    
+    if (isMinor) {
+      toast({
+        title: 'Enhanced Safety Mode',
+        description: 'Your account has enhanced content filtering for safety.',
+      });
+    }
+  };
 
   const isLabPro = hasLabProAccess;
 
@@ -453,6 +472,11 @@ const SlangLab = () => {
                               >
                                 <Copy className="h-4 w-4" />
                               </Button>
+                              <ReportButton 
+                                contentType="creation" 
+                                contentId={creation.id} 
+                                size="sm" 
+                              />
                             </div>
                           </div>
 
@@ -515,6 +539,14 @@ const SlangLab = () => {
           )}
         </Tabs>
       </div>
+
+      {user && (
+        <AgeVerificationModal
+          open={showAgeVerification}
+          onVerificationComplete={handleAgeVerificationComplete}
+          userId={user.id}
+        />
+      )}
     </div>
   );
 };

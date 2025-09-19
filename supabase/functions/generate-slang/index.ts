@@ -346,27 +346,96 @@ function getFallbackCreations(vibe: string) {
 }
 
 async function moderateCreations(creations: any[]) {
-  const bannedWords = [
-    'hate', 'slur', 'inappropriate', 'offensive', 'harmful',
-    // Add more banned words as needed
-  ];
+  const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  );
 
-  return creations.map(creation => {
+  // Get banned terms from database
+  const { data: bannedTerms } = await supabase
+    .from('banned_terms')
+    .select('phrase');
+
+  const bannedWords = bannedTerms?.map(t => t.phrase.toLowerCase()) || [];
+
+  const moderatedCreations = [];
+
+  for (const creation of creations) {
     const textToCheck = `${creation.phrase} ${creation.meaning} ${creation.example}`.toLowerCase();
     
+    // 1. Check banned words
     let isSafe = true;
-    for (const banned of bannedWords) {
-      if (textToCheck.includes(banned)) {
+    let violations = [];
+    
+    const foundBanned = bannedWords.filter(word => textToCheck.includes(word));
+    if (foundBanned.length > 0) {
+      isSafe = false;
+      violations.push('Contains banned terms');
+      continue; // Skip this creation
+    }
+
+    // 2. OpenAI Moderation API check
+    if (openaiApiKey) {
+      try {
+        const moderationResponse = await fetch('https://api.openai.com/v1/moderations', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openaiApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            input: `${creation.phrase}: ${creation.meaning}. Example: ${creation.example}`
+          }),
+        });
+
+        if (moderationResponse.ok) {
+          const moderation = await moderationResponse.json();
+          const result = moderation.results[0];
+          
+          if (result.flagged) {
+            isSafe = false;
+            const flaggedCategories = Object.entries(result.categories)
+              .filter(([_, flagged]) => flagged)
+              .map(([category, _]) => category);
+            violations.push(`AI flagged: ${flaggedCategories.join(', ')}`);
+            continue; // Skip this creation
+          }
+        }
+      } catch (error) {
+        console.error('OpenAI moderation error:', error);
+        // Continue without failing if moderation API is down
+      }
+    }
+
+    // 3. Pattern matching for disguised content
+    const patterns = [
+      /f[*@#$]ck/gi,
+      /sh[*@#$]t/gi,
+      /b[*@#$]tch/gi,
+      /n[*@#$]gger/gi,
+      /\d+\s*(kill|murder|die)/gi,
+      /(k\s*i\s*l\s*l|k1ll|ki11)/gi,
+    ];
+
+    for (const pattern of patterns) {
+      if (pattern.test(textToCheck)) {
         isSafe = false;
+        violations.push('Contains disguised inappropriate content');
         break;
       }
     }
 
-    return {
+    if (!isSafe) continue; // Skip this creation
+
+    // Mark as safe and add to results
+    moderatedCreations.push({
       ...creation,
-      safe_flag: isSafe
-    };
-  }).filter(creation => creation.safe_flag); // Only return safe creations
+      safe_flag: true
+    });
+  }
+
+  return moderatedCreations;
 }
 
 async function saveCreationsToDatabase(userId: string, vibe: string, creations: any[]) {
