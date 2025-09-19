@@ -6,8 +6,10 @@ import { Badge } from '@/components/ui/badge';
 interface UsageDisplayProps {
   searchesUsed: number;
   searchesLimit: number;
-  creationsUsed?: number;
-  creationsLimit?: number;
+  aiCreationsUsed?: number;
+  aiCreationsLimit?: number;
+  manualCreationsUsed?: number;
+  manualCreationsLimit?: number;
   plan: string;
   className?: string;
   isAdmin?: boolean;
@@ -16,14 +18,17 @@ interface UsageDisplayProps {
 export const UsageDisplay: React.FC<UsageDisplayProps> = ({
   searchesUsed,
   searchesLimit,
-  creationsUsed = 0,
-  creationsLimit = 0,
+  aiCreationsUsed = 0,
+  aiCreationsLimit = 0,
+  manualCreationsUsed = 0,
+  manualCreationsLimit = 0,
   plan,
   className = "",
   isAdmin = false
 }) => {
   const searchPercentage = searchesLimit === -1 ? 0 : (searchesUsed / searchesLimit) * 100;
-  const creationPercentage = creationsLimit === -1 ? 0 : (creationsUsed / creationsLimit) * 100;
+  const aiCreationPercentage = aiCreationsLimit === -1 ? 0 : (aiCreationsUsed / aiCreationsLimit) * 100;
+  const manualCreationPercentage = manualCreationsLimit === -1 ? 0 : (manualCreationsUsed / manualCreationsLimit) * 100;
 
   return (
     <Card className={className}>
@@ -47,16 +52,31 @@ export const UsageDisplay: React.FC<UsageDisplayProps> = ({
             />
           </div>
           
-          {creationsLimit > 0 && (
+          {aiCreationsLimit > 0 && (
             <div>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-sm">Creations (Weekly)</span>
+                <span className="text-sm">AI Creations {plan === 'LabPro' ? '(Daily)' : '(Weekly)'}</span>
                 <span className="text-sm text-muted-foreground">
-                  {creationsUsed} / {creationsLimit === -1 ? '∞' : creationsLimit}
+                  {aiCreationsUsed} / {aiCreationsLimit === -1 ? '∞' : aiCreationsLimit}
                 </span>
               </div>
               <Progress 
-                value={creationPercentage} 
+                value={aiCreationPercentage} 
+                className="h-2"
+              />
+            </div>
+          )}
+          
+          {manualCreationsLimit > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm">Manual Creations (Weekly)</span>
+                <span className="text-sm text-muted-foreground">
+                  {manualCreationsUsed} / {manualCreationsLimit === -1 ? '∞' : manualCreationsLimit}
+                </span>
+              </div>
+              <Progress 
+                value={manualCreationPercentage} 
                 className="h-2"
               />
             </div>

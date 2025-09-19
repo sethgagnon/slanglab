@@ -118,6 +118,7 @@ export type Database = {
       creations: {
         Row: {
           created_at: string
+          creation_type: string
           example: string
           id: string
           meaning: string
@@ -128,6 +129,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          creation_type?: string
           example: string
           id?: string
           meaning: string
@@ -138,6 +140,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          creation_type?: string
           example?: string
           id?: string
           meaning?: string
@@ -185,6 +188,7 @@ export type Database = {
           generations_used: number
           id: string
           lookups_used: number
+          manual_generations_used: number
           user_id: string
           week_start_date: string | null
         }
@@ -195,6 +199,7 @@ export type Database = {
           generations_used?: number
           id?: string
           lookups_used?: number
+          manual_generations_used?: number
           user_id: string
           week_start_date?: string | null
         }
@@ -205,6 +210,7 @@ export type Database = {
           generations_used?: number
           id?: string
           lookups_used?: number
+          manual_generations_used?: number
           user_id?: string
           week_start_date?: string | null
         }

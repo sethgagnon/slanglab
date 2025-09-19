@@ -61,8 +61,29 @@ serve(async (req) => {
         // Admin users have unlimited generations
         if (role === 'admin') {
           // Skip all limits for admin users
-        } else if (plan === 'free') {
-          // Get the start of current week (Monday)
+        } else if (plan === 'labpro') {
+          // LabPro users: 1 AI generation per day
+          const today = new Date().toISOString().split('T')[0];
+          
+          const { data: limits } = await supabase
+            .from('limits')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('date', today)
+            .maybeSingle();
+
+          const generationsUsed = limits?.generations_used || 0;
+
+          if (generationsUsed >= 1) {
+            return new Response(JSON.stringify({ 
+              error: 'Daily AI generation limit reached. LabPro users get 1 AI creation per day. Try again tomorrow or create manual entries (unlimited).' 
+            }), {
+              status: 429,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+        } else {
+          // Free users: 1 AI generation per week
           const { data: weekStartData } = await supabase
             .rpc('get_week_start')
             .single();
@@ -77,11 +98,10 @@ serve(async (req) => {
             .maybeSingle();
 
           const generationsUsed = limits?.generations_used || 0;
-          const maxGenerations = 1; // Free users get 1 per week
 
-          if (generationsUsed >= maxGenerations) {
+          if (generationsUsed >= 1) {
             return new Response(JSON.stringify({ 
-              error: 'Weekly generation limit reached. You get 1 free slang creation per week. Upgrade to LabPro for unlimited generations.' 
+              error: 'Weekly AI generation limit reached. Free users get 1 AI creation per week. Upgrade to LabPro for daily AI generations and unlimited manual creations.' 
             }), {
               status: 429,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -362,7 +382,8 @@ async function saveCreationsToDatabase(userId: string, vibe: string, creations: 
       vibe: vibe,
       meaning: creation.meaning,
       example: creation.example,
-      safe_flag: creation.safe_flag
+      safe_flag: creation.safe_flag,
+      creation_type: 'ai'
     }));
 
     // Use service role key to bypass RLS for server-side operations
@@ -388,45 +409,91 @@ async function updateGenerationLimits(userId: string) {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get the start of current week for weekly tracking
-    const { data: weekStartData } = await supabase
-      .rpc('get_week_start')
+    // Get user profile to check plan
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('plan')
+      .eq('user_id', userId)
       .single();
-    
-    const weekStart = weekStartData;
+
+    const plan = profile?.plan || 'free';
     const today = new Date().toISOString().split('T')[0];
     
-    const { data: limits, error } = await supabase
-      .from('limits')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('week_start_date', weekStart)
-      .maybeSingle();
-
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error fetching limits:', error);
-      return;
-    }
-
-    if (limits) {
-      // Update existing limits
-      await supabase
+    if (plan === 'labpro') {
+      // For LabPro users: Update daily limits
+      const { data: dailyLimits, error } = await supabase
         .from('limits')
-        .update({
-          generations_used: limits.generations_used + 1
-        })
-        .eq('id', limits.id);
+        .select('*')
+        .eq('user_id', userId)
+        .eq('date', today)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching daily limits:', error);
+        return;
+      }
+
+      if (dailyLimits) {
+        // Update existing daily limits
+        await supabase
+          .from('limits')
+          .update({
+            generations_used: dailyLimits.generations_used + 1
+          })
+          .eq('id', dailyLimits.id);
+      } else {
+        // Create new daily limits record
+        await supabase
+          .from('limits')
+          .insert({
+            user_id: userId,
+            date: today,
+            lookups_used: 0,
+            generations_used: 1,
+            manual_generations_used: 0
+          });
+      }
     } else {
-      // Create new limits record for the week
-      await supabase
+      // For Free users: Update weekly limits
+      const { data: weekStartData } = await supabase
+        .rpc('get_week_start')
+        .single();
+      
+      const weekStart = weekStartData;
+      
+      const { data: limits, error } = await supabase
         .from('limits')
-        .insert({
-          user_id: userId,
-          date: today,
-          week_start_date: weekStart,
-          lookups_used: 0,
-          generations_used: 1
-        });
+        .select('*')
+        .eq('user_id', userId)
+        .eq('week_start_date', weekStart)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching limits:', error);
+        return;
+      }
+
+      if (limits) {
+        // Update existing limits
+        await supabase
+          .from('limits')
+          .update({
+            generations_used: limits.generations_used + 1
+          })
+          .eq('id', limits.id);
+      } else {
+        // Create new limits record for the week
+        await supabase
+          .from('limits')
+          .insert({
+            user_id: userId,
+            date: today,
+            week_start_date: weekStart,
+            lookups_used: 0,
+            generations_used: 1,
+            manual_generations_used: 0
+          });
+      }
     }
   } catch (error) {
     console.error('Error updating generation limits:', error);

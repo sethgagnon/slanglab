@@ -5,8 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 interface UsageStats {
   searchesUsed: number;
   searchesLimit: number;
-  creationsUsed: number;
-  creationsLimit: number;
+  aiCreationsUsed: number;
+  aiCreationsLimit: number;
+  manualCreationsUsed: number;
+  manualCreationsLimit: number;
   plan: string;
   loading: boolean;
   isAdmin?: boolean;
@@ -17,8 +19,10 @@ export const useUsageStats = () => {
   const [stats, setStats] = useState<UsageStats>({
     searchesUsed: 0,
     searchesLimit: 3, // Default for Free plan
-    creationsUsed: 0,
-    creationsLimit: 1, // Default for Free plan (weekly)
+    aiCreationsUsed: 0,
+    aiCreationsLimit: 1, // Default for Free plan (weekly)
+    manualCreationsUsed: 0,
+    manualCreationsLimit: 3, // Default for Free plan (weekly)
     plan: 'Free',
     loading: true
   });
@@ -31,8 +35,10 @@ export const useUsageStats = () => {
         setStats({
           searchesUsed: parseInt(anonymousSearches),
           searchesLimit: 1, // Anonymous users get 1 free search
-          creationsUsed: 0,
-          creationsLimit: 0,
+          aiCreationsUsed: 0,
+          aiCreationsLimit: 0,
+          manualCreationsUsed: 0,
+          manualCreationsLimit: 0,
           plan: 'Anonymous',
           loading: false
         });
@@ -74,35 +80,54 @@ export const useUsageStats = () => {
           .eq('date', today)
           .maybeSingle();
 
-        // Get weekly limits for creations
+        // Get weekly limits for AI and manual creations
         const { data: weeklyLimits } = await supabase
           .from('limits')
-          .select('generations_used')
+          .select('generations_used, manual_generations_used')
           .eq('user_id', user.id)
           .eq('week_start_date', weekStart)
           .maybeSingle();
 
+        // Get daily AI limits for LabPro users
+        const { data: dailyAiLimits } = await supabase
+          .from('limits')
+          .select('generations_used')
+          .eq('user_id', user.id)
+          .eq('date', today)
+          .maybeSingle();
+
         // Set limits based on role and plan
         let searchesLimit = 3; // Free plan default
-        let creationsLimit = 1; // Free plan gets 1 per week
+        let aiCreationsLimit = 1; // Free plan gets 1 AI per week
+        let manualCreationsLimit = 3; // Free plan gets 3 manual per week
 
         // Admin users get unlimited everything
         if (isAdmin) {
           searchesLimit = -1; // Unlimited
-          creationsLimit = -1; // Unlimited
+          aiCreationsLimit = -1; // Unlimited
+          manualCreationsLimit = -1; // Unlimited
         } else if (userPlan === 'SearchPro') {
           searchesLimit = -1; // Unlimited
-          creationsLimit = 1; // Still 1 per week for SearchPro
+          aiCreationsLimit = 1; // Still 1 AI per week for SearchPro
+          manualCreationsLimit = 3; // Still 3 manual per week for SearchPro
         } else if (userPlan === 'LabPro') {
           searchesLimit = -1; // Unlimited
-          creationsLimit = -1; // Unlimited for LabPro
+          aiCreationsLimit = 1; // 1 AI per day for LabPro
+          manualCreationsLimit = -1; // Unlimited manual for LabPro
         }
+
+        // For LabPro users, use daily AI limits instead of weekly
+        const aiCreationsUsed = userPlan === 'LabPro' && !isAdmin 
+          ? dailyAiLimits?.generations_used || 0
+          : weeklyLimits?.generations_used || 0;
 
         setStats({
           searchesUsed: dailyLimits?.lookups_used || 0,
           searchesLimit,
-          creationsUsed: weeklyLimits?.generations_used || 0,
-          creationsLimit,
+          aiCreationsUsed,
+          aiCreationsLimit,
+          manualCreationsUsed: weeklyLimits?.manual_generations_used || 0,
+          manualCreationsLimit,
           plan: isAdmin ? 'Admin' : userPlan,
           loading: false,
           isAdmin

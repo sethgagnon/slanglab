@@ -264,8 +264,10 @@ const Lookup = () => {
             <UsageDisplay 
               searchesUsed={usageStats.searchesUsed}
               searchesLimit={usageStats.searchesLimit}
-              creationsUsed={usageStats.creationsUsed}
-              creationsLimit={usageStats.creationsLimit}
+              aiCreationsUsed={usageStats.aiCreationsUsed}
+              aiCreationsLimit={usageStats.aiCreationsLimit}
+              manualCreationsUsed={usageStats.manualCreationsUsed}
+              manualCreationsLimit={usageStats.manualCreationsLimit}
               plan={usageStats.plan}
               isAdmin={usageStats.isAdmin}
             />

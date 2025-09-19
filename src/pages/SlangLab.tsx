@@ -15,7 +15,8 @@ import {
   LogOut,
   Loader2,
   CheckCircle,
-  TrendingUp
+  TrendingUp,
+  PlusCircle
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,6 +25,7 @@ import { SharePanel } from '@/components/SharePanel';
 import { SlangMonitoringDashboard } from '@/components/SlangMonitoringDashboard';
 import { useUsageStats } from '@/hooks/useUsageStats';
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt';
+import { ManualSlangForm } from '@/components/ManualSlangForm';
 
 
 interface Creation {
@@ -33,6 +35,8 @@ interface Creation {
   example: string;
   safe_flag: boolean;
   votes: number;
+  creation_type?: string;
+  vibe?: string;
 }
 
 const VIBES = [
@@ -55,7 +59,7 @@ const SlangLab = () => {
   } | null>(null);
   const { user, signOut } = useAuth();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("create");
+  const [activeTab, setActiveTab] = useState("ai-create");
   const { plan, isAdmin } = useUsageStats();
 
   if (!user) {
@@ -88,6 +92,28 @@ const SlangLab = () => {
   }, [user]);
 
   const isLabPro = hasLabProAccess;
+
+  // Function to refresh creations after manual creation
+  const refreshCreations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('creations')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        // Map data to include votes as 0 for now (we'll implement voting separately)
+        const mappedCreations = data.map(item => ({
+          ...item,
+          votes: 0 // Default votes for manual creations
+        }));
+        setCreations(mappedCreations);
+      }
+    } catch (error) {
+      console.error('Error refreshing creations:', error);
+    }
+  };
 
   const handleGenerate = async () => {
     if (!selectedVibe) {
@@ -263,10 +289,14 @@ const SlangLab = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          <TabsList className={`grid w-full max-w-md mx-auto ${hasLabProAccess ? 'grid-cols-2' : 'grid-cols-1'}`}>
-            <TabsTrigger value="create" className="flex items-center gap-2">
+          <TabsList className={`grid w-full max-w-4xl mx-auto ${hasLabProAccess ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <TabsTrigger value="ai-create" className="flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
-              Create Slang
+              AI Create
+            </TabsTrigger>
+            <TabsTrigger value="manual-create" className="flex items-center gap-2">
+              <PlusCircle className="h-4 w-4" />
+              Manual Create
             </TabsTrigger>
             {hasLabProAccess && (
               <TabsTrigger value="tracking" className="flex items-center gap-2">
@@ -276,7 +306,7 @@ const SlangLab = () => {
             )}
           </TabsList>
 
-          <TabsContent value="create" className="space-y-8">
+          <TabsContent value="ai-create" className="space-y-8">
             {/* Generator Controls */}
             <Card className="mx-auto max-w-2xl">
               <CardHeader>
@@ -461,6 +491,15 @@ const SlangLab = () => {
                 </p>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="manual-create" className="space-y-8">
+            <div className="mx-auto max-w-2xl">
+              <ManualSlangForm 
+                onCreationSuccess={refreshCreations}
+                disabled={!user}
+              />
+            </div>
           </TabsContent>
 
           {hasLabProAccess && (

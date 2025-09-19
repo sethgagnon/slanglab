@@ -242,12 +242,22 @@ const Account = () => {
               
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Creations (Weekly)</span>
+                  <span className="text-sm font-medium">AI Creations {usage.plan === 'LabPro' ? '(Daily)' : '(Weekly)'}</span>
                   <span className="text-sm text-muted-foreground">
-                    {usage.creationsUsed} / {usage.creationsLimit === -1 ? '∞' : usage.creationsLimit}
+                    {usage.aiCreationsUsed} / {usage.aiCreationsLimit === -1 ? '∞' : usage.aiCreationsLimit}
                   </span>
                 </div>
-                <Progress value={usage.creationsLimit === -1 ? 0 : usage.creationsUsed / usage.creationsLimit * 100} className="h-2" />
+                <Progress value={usage.aiCreationsLimit === -1 ? 0 : usage.aiCreationsUsed / usage.aiCreationsLimit * 100} className="h-2" />
+              </div>
+              
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Manual Creations (Weekly)</span>
+                  <span className="text-sm text-muted-foreground">
+                    {usage.manualCreationsUsed} / {usage.manualCreationsLimit === -1 ? '∞' : usage.manualCreationsLimit}
+                  </span>
+                </div>
+                <Progress value={usage.manualCreationsLimit === -1 ? 0 : usage.manualCreationsUsed / usage.manualCreationsLimit * 100} className="h-2" />
               </div>
 
               <div className="text-xs text-muted-foreground space-y-1">
