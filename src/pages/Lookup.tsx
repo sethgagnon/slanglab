@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { getSourceLogo, getSourceName } from '@/lib/sourceLogos';
 import { useToast } from '@/hooks/use-toast';
 import { UsageDisplay } from '@/components/ui/usage-display';
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt';
@@ -386,11 +387,21 @@ const Lookup = () => {
                           </Button>
                         </div>
                         <p className="text-sm text-muted-foreground">"{citation.quote}"</p>
-                        {citation.date && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Published: {new Date(citation.date).toLocaleDateString()}
-                          </p>
-                        )}
+                         {citation.date && (
+                           <div className="flex items-center gap-2 mt-1">
+                             <img 
+                               src={getSourceLogo(citation.url)} 
+                               alt={getSourceName(citation.url)}
+                               className="w-4 h-4 rounded-sm"
+                               onError={(e) => {
+                                 e.currentTarget.src = '/logos/default.png';
+                               }}
+                             />
+                             <p className="text-xs text-muted-foreground">
+                               Published: {new Date(citation.date).toLocaleDateString()}
+                             </p>
+                           </div>
+                         )}
                       </div>
                     ))}
                   </div>
