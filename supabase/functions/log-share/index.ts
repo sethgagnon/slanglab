@@ -14,7 +14,23 @@ serve(async (req) => {
   }
 
   try {
+    // Create Supabase client with service role key
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Parse request body
     const { creation_id, user_id, platform, share_content, share_url } = await req.json();
+    
+    // Check if user has LabPro access for monitoring features
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('plan, role')
+      .eq('user_id', user_id)
+      .single();
+    
+    const hasLabProAccess = profile?.role === 'admin' || profile?.plan === 'labpro';
 
     // Validate required fields
     if (!creation_id || !user_id || !platform) {
@@ -45,7 +61,7 @@ serve(async (req) => {
       );
     }
 
-    // Create Supabase client with service role key
+    // Create Supabase client with service role key (if not already created)
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
@@ -76,22 +92,25 @@ serve(async (req) => {
       );
     }
 
-    // Activate monitoring for this creation (if not already active)
-    const { error: monitoringError } = await supabase
-      .from('creation_monitoring')
-      .upsert({
-        creation_id,
-        user_id,
-        monitoring_started_at: new Date().toISOString(),
-      }, {
-        onConflict: 'creation_id',
-        ignoreDuplicates: true
-      });
+    // Only activate monitoring for LabPro users
+    if (hasLabProAccess) {
+      const { error: monitoringError } = await supabaseAdmin
+        .from('creation_monitoring')
+        .upsert({
+          creation_id,
+          user_id,
+          monitoring_started_at: new Date().toISOString(),
+          status: 'monitoring'
+        }, {
+          onConflict: 'creation_id,user_id',
+          ignoreDuplicates: true
+        });
 
-    if (monitoringError) {
-      console.log('Monitoring activation failed (non-critical):', monitoringError);
-    } else {
-      console.log('Monitoring activated for creation:', creation_id);
+      if (monitoringError) {
+        console.log('Monitoring activation failed (non-critical):', monitoringError);
+      } else {
+        console.log('Monitoring activated for creation:', creation_id);
+      }
     }
 
     if (error) {

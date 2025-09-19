@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -22,6 +22,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SharePanel } from '@/components/SharePanel';
 import { SlangMonitoringDashboard } from '@/components/SlangMonitoringDashboard';
+import { useUsageStats } from '@/hooks/useUsageStats';
+import { UpgradePrompt } from '@/components/ui/upgrade-prompt';
+
 
 interface Creation {
   id: string;
@@ -52,6 +55,14 @@ const SlangLab = () => {
   } | null>(null);
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("create");
+  const { plan, isAdmin } = useUsageStats();
+
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  const hasLabProAccess = isAdmin || plan === 'LabPro';
 
   // Fetch user profile to check plan status
   useEffect(() => {
@@ -76,7 +87,7 @@ const SlangLab = () => {
     fetchUserProfile();
   }, [user]);
 
-  const isLabPro = userProfile?.plan === 'pro' || userProfile?.plan === 'premium' || userProfile?.role === 'admin';
+  const isLabPro = hasLabProAccess;
 
   const handleGenerate = async () => {
     if (!selectedVibe) {
@@ -251,16 +262,18 @@ const SlangLab = () => {
           </p>
         </div>
 
-        <Tabs defaultValue="create" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+          <TabsList className={`grid w-full max-w-md mx-auto ${hasLabProAccess ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <TabsTrigger value="create" className="flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
               Create Slang
             </TabsTrigger>
-            <TabsTrigger value="tracking" className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Slang Tracker
-            </TabsTrigger>
+            {hasLabProAccess && (
+              <TabsTrigger value="tracking" className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Slang Tracker
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="create" className="space-y-8">
@@ -450,9 +463,17 @@ const SlangLab = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="tracking">
-            <SlangMonitoringDashboard />
-          </TabsContent>
+          {hasLabProAccess && (
+            <TabsContent value="tracking">
+              <SlangMonitoringDashboard />
+            </TabsContent>
+          )}
+          
+          {!hasLabProAccess && activeTab === "tracking" && (
+            <div className="text-center p-8 space-y-4">
+              <UpgradePrompt type="creation-limit" />
+            </div>
+          )}
         </Tabs>
       </div>
     </div>

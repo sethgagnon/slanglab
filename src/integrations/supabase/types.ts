@@ -564,6 +564,10 @@ export type Database = {
         Args: { input_date?: string }
         Returns: string
       }
+      has_labpro_access: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       is_profile_owner: {
         Args: { profile_user_id: string }
         Returns: boolean

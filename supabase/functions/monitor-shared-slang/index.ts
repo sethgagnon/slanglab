@@ -22,21 +22,29 @@ serve(async (req) => {
 
     console.log('Starting slang monitoring check...');
 
-    // Get all creations that need monitoring
+    // Get date 7 days ago for filtering
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    // Fetch creations that need monitoring (only for LabPro users)
     const { data: monitoringData, error: fetchError } = await supabase
       .from('creation_monitoring')
       .select(`
         id,
         creation_id,
         user_id,
+        monitoring_started_at,
         last_checked_at,
         times_found,
         trending_score,
         status,
         platforms_detected,
-        creations!inner(phrase, meaning, example)
+        creations!inner(phrase, meaning, example),
+        profiles!inner(plan, role)
       `)
-      .or('last_checked_at.is.null,last_checked_at.lt.' + new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+      .or('last_checked_at.is.null,last_checked_at.lt.' + weekAgo)
+      .eq('status', 'monitoring')
+      .or('profiles.plan.eq.labpro,profiles.role.eq.admin')
+      .limit(50);
 
     if (fetchError) {
       console.error('Error fetching monitoring data:', fetchError);
