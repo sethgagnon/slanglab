@@ -46,6 +46,7 @@ serve(async (req) => {
       .select(`
         id,
         created_at,
+        term_id,
         terms (
           id,
           text,
@@ -55,13 +56,18 @@ serve(async (req) => {
             tone,
             confidence
           )
-        ),
-        favorites!inner (
-          user_id
         )
       `)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
+
+    // Get all user's favorites to check which lookups are favorited
+    const { data: userFavorites } = await supabase
+      .from('favorites')
+      .select('term_id')
+      .eq('user_id', user.id);
+    
+    const favoriteTermIds = new Set(userFavorites?.map(fav => fav.term_id) || []);
 
     // Apply filters
     if (filters.search) {
@@ -141,7 +147,7 @@ serve(async (req) => {
       tone: lookup.terms?.senses?.[0]?.tone || 'neutral',
       confidence: lookup.terms?.senses?.[0]?.confidence || 'Low',
       created_at: lookup.created_at,
-      is_favorite: lookup.favorites?.length > 0
+      is_favorite: favoriteTermIds.has(lookup.term_id)
     })) || [];
 
     const formattedFavorites = favorites?.map(favorite => ({
