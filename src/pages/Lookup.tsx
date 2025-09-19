@@ -52,13 +52,16 @@ const Lookup = () => {
 
   useEffect(() => {
     const q = searchParams.get('q');
-    if (q && q !== query) {
+    if (q && q.trim()) {
       setQuery(q);
-      handleSearch(q);
+      // Trigger search immediately for URL query parameters
+      if (q !== query) {
+        performSearch(q);
+      }
     }
   }, [searchParams]);
 
-  const handleSearch = async (searchTerm: string = query) => {
+  const performSearch = async (searchTerm: string) => {
     if (!searchTerm.trim()) return;
 
     setLoading(true);
@@ -114,6 +117,10 @@ const Lookup = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSearch = async (searchTerm: string = query) => {
+    await performSearch(searchTerm);
   };
 
   const handleSave = async () => {
