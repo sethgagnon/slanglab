@@ -17,7 +17,7 @@ export const useUsageStats = () => {
     searchesUsed: 0,
     searchesLimit: 3, // Default for Free plan
     creationsUsed: 0,
-    creationsLimit: 0, // Default for Free plan
+    creationsLimit: 1, // Default for Free plan (weekly)
     plan: 'Free',
     loading: true
   });
@@ -48,31 +48,48 @@ export const useUsageStats = () => {
 
         const userPlan = profile?.plan || 'Free';
 
-        // Get today's usage
+        // Get today's usage for searches (daily) and weekly usage for creations
         const today = new Date().toISOString().split('T')[0];
-        const { data: limits } = await supabase
+        
+        // Get weekly creation usage
+        const { data: weekStartData } = await supabase
+          .rpc('get_week_start')
+          .maybeSingle();
+        
+        const weekStart = weekStartData;
+        
+        // Get daily limits for searches
+        const { data: dailyLimits } = await supabase
           .from('limits')
-          .select('lookups_used, creations_used')
+          .select('lookups_used')
           .eq('user_id', user.id)
           .eq('date', today)
-          .single();
+          .maybeSingle();
+
+        // Get weekly limits for creations
+        const { data: weeklyLimits } = await supabase
+          .from('limits')
+          .select('generations_used')
+          .eq('user_id', user.id)
+          .eq('week_start_date', weekStart)
+          .maybeSingle();
 
         // Set limits based on plan
         let searchesLimit = 3; // Free plan default
-        let creationsLimit = 0; // Free plan default
+        let creationsLimit = 1; // Free plan gets 1 per week
 
         if (userPlan === 'SearchPro') {
           searchesLimit = -1; // Unlimited
-          creationsLimit = 0;
+          creationsLimit = 1; // Still 1 per week for SearchPro
         } else if (userPlan === 'LabPro') {
           searchesLimit = -1; // Unlimited
-          creationsLimit = 25;
+          creationsLimit = -1; // Unlimited for LabPro
         }
 
         setStats({
-          searchesUsed: limits?.lookups_used || 0,
+          searchesUsed: dailyLimits?.lookups_used || 0,
           searchesLimit,
-          creationsUsed: limits?.creations_used || 0,
+          creationsUsed: weeklyLimits?.generations_used || 0,
           creationsLimit,
           plan: userPlan,
           loading: false

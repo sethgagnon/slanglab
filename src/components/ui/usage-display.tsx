@@ -27,7 +27,7 @@ export const UsageDisplay: React.FC<UsageDisplayProps> = ({
     <Card className={className}>
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-medium">Daily Usage</h3>
+          <h3 className="font-medium">Usage Limits</h3>
           <Badge variant="outline">{plan}</Badge>
         </div>
         
@@ -45,10 +45,10 @@ export const UsageDisplay: React.FC<UsageDisplayProps> = ({
             />
           </div>
           
-          {(plan === 'LabPro' || creationsLimit > 0) && (
+          {creationsLimit > 0 && (
             <div>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-sm">Creations</span>
+                <span className="text-sm">Creations (Weekly)</span>
                 <span className="text-sm text-muted-foreground">
                   {creationsUsed} / {creationsLimit === -1 ? '∞' : creationsLimit}
                 </span>

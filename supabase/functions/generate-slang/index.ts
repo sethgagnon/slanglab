@@ -48,15 +48,7 @@ serve(async (req) => {
       if (user) {
         userId = user.id;
         
-        // Check usage limits
-        const today = new Date().toISOString().split('T')[0];
-        const { data: limits } = await supabase
-          .from('limits')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('date', today)
-          .single();
-
+        // Check usage limits - weekly for free users
         const { data: profile } = await supabase
           .from('profiles')
           .select('plan')
@@ -64,16 +56,34 @@ serve(async (req) => {
           .single();
 
         const plan = profile?.plan || 'free';
-        const generationsUsed = limits?.generations_used || 0;
-        const maxGenerations = plan === 'free' ? 3 : -1; // -1 for unlimited
+        
+        // For free users, check weekly limits
+        if (plan === 'free') {
+          // Get the start of current week (Monday)
+          const { data: weekStartData } = await supabase
+            .rpc('get_week_start')
+            .single();
+          
+          const weekStart = weekStartData;
+          
+          const { data: limits } = await supabase
+            .from('limits')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('week_start_date', weekStart)
+            .maybeSingle();
 
-        if (plan === 'free' && generationsUsed >= maxGenerations) {
-          return new Response(JSON.stringify({ 
-            error: 'Generation limit reached for today. Upgrade to Plus for unlimited generations.' 
-          }), {
-            status: 429,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          const generationsUsed = limits?.generations_used || 0;
+          const maxGenerations = 1; // Free users get 1 per week
+
+          if (generationsUsed >= maxGenerations) {
+            return new Response(JSON.stringify({ 
+              error: 'Weekly generation limit reached. You get 1 free slang creation per week. Upgrade to LabPro for unlimited generations.' 
+            }), {
+              status: 429,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
         }
       }
     }
@@ -261,14 +271,20 @@ async function updateGenerationLimits(userId: string) {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Get the start of current week for weekly tracking
+    const { data: weekStartData } = await supabase
+      .rpc('get_week_start')
+      .single();
+    
+    const weekStart = weekStartData;
     const today = new Date().toISOString().split('T')[0];
     
     const { data: limits, error } = await supabase
       .from('limits')
       .select('*')
       .eq('user_id', userId)
-      .eq('date', today)
-      .single();
+      .eq('week_start_date', weekStart)
+      .maybeSingle();
 
     if (error && error.code !== 'PGRST116') {
       console.error('Error fetching limits:', error);
@@ -284,12 +300,13 @@ async function updateGenerationLimits(userId: string) {
         })
         .eq('id', limits.id);
     } else {
-      // Create new limits record
+      // Create new limits record for the week
       await supabase
         .from('limits')
         .insert({
           user_id: userId,
           date: today,
+          week_start_date: weekStart,
           lookups_used: 0,
           generations_used: 1
         });
