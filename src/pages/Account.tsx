@@ -4,13 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Sparkles, User, LogOut, Crown, Users, Download } from 'lucide-react';
+import { Sparkles, User, LogOut, Crown, Users, Download, Star, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUsageStats } from '@/hooks/useUsageStats';
+import { useFavorites } from '@/hooks/useFavorites';
 import { supabase } from '@/integrations/supabase/client';
 const Account = () => {
   const { user, signOut } = useAuth();
   const usage = useUsageStats();
+  const { favorites, loading: favoritesLoading } = useFavorites(3);
   if (!user) {
     return <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="w-full max-w-md">
@@ -153,6 +155,71 @@ const Account = () => {
                   <Crown className="w-4 h-4 mr-2" />
                   Upgrade to SearchPro
                 </Button>}
+            </CardContent>
+          </Card>
+
+          {/* Quick Favorites */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center">
+                    <Star className="w-4 h-4 mr-2 text-primary" />
+                    Quick Favorites
+                  </CardTitle>
+                  <CardDescription>Your recently favorited terms</CardDescription>
+                </div>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/history" className="text-primary">
+                    View All
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </Link>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {favoritesLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="animate-pulse">
+                      <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                      <div className="h-3 bg-muted rounded w-1/2"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : favorites.length > 0 ? (
+                <div className="space-y-4">
+                  {favorites.map((favorite) => (
+                    <div key={favorite.id} className="border-l-2 border-primary pl-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-sm">{favorite.term}</h4>
+                          <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                            {favorite.meaning}
+                          </p>
+                        </div>
+                        <div className="text-xs text-muted-foreground ml-2">
+                          {new Date(favorite.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <Button variant="outline" size="sm" asChild className="w-full">
+                    <Link to="/history">
+                      View All Favorites
+                      <ArrowRight className="w-4 h-4 ml-1" />
+                    </Link>
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <Star className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground mb-3">No favorites yet</p>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to="/lookup">Start Exploring Terms</Link>
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
