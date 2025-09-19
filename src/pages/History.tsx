@@ -18,6 +18,7 @@ import {
   Clock
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface HistoryItem {
@@ -46,64 +47,89 @@ const History = () => {
   }, [user]);
 
   const loadHistory = async () => {
-    // TODO: Replace with actual API calls
-    // Mock data for now
-    const mockData: HistoryItem[] = [
-      {
-        id: '1',
-        term: 'mid',
-        confidence: 'High',
-        tone: 'neutral',
-        meaning: 'Average, mediocre, or of poor quality',
-        created_at: '2024-01-15T10:30:00Z',
-        is_favorite: true
-      },
-      {
-        id: '2',
-        term: 'rizz',
-        confidence: 'High',
-        tone: 'positive',
-        meaning: 'Charisma, especially in romantic contexts',
-        created_at: '2024-01-14T15:45:00Z',
-        is_favorite: false
-      },
-      {
-        id: '3',
-        term: 'delulu',
-        confidence: 'Medium',
-        tone: 'niche',
-        meaning: 'Delusional, living in fantasy',
-        created_at: '2024-01-13T09:15:00Z',
-        is_favorite: true
-      }
-    ];
+    try {
+      const { data, error } = await supabase.functions.invoke('user-history', {
+        body: { 
+          filters: {
+            search: searchTerm,
+            tone: toneFilter,
+            dateRange: dateFilter
+          },
+          page: 1,
+          limit: 50
+        }
+      });
 
-    setLookups(mockData);
-    setFavorites(mockData.filter(item => item.is_favorite));
+      if (error) {
+        throw error;
+      }
+
+      setLookups(data.lookups || []);
+      setFavorites(data.favorites || []);
+    } catch (error: any) {
+      console.error('Error loading history:', error);
+      toast({
+        title: "Load failed",
+        description: error.message || "Unable to load history.",
+        variant: "destructive",
+      });
+    }
   };
 
   const toggleFavorite = async (itemId: string) => {
-    setLookups(prev => prev.map(item => 
-      item.id === itemId 
-        ? { ...item, is_favorite: !item.is_favorite }
-        : item
-    ));
-
-    setFavorites(prev => {
+    try {
       const item = lookups.find(l => l.id === itemId);
-      if (!item) return prev;
-      
-      if (item.is_favorite) {
-        return prev.filter(f => f.id !== itemId);
-      } else {
-        return [...prev, { ...item, is_favorite: true }];
-      }
-    });
+      if (!item) return;
 
-    toast({
-      title: "Updated",
-      description: "Favorite status updated.",
-    });
+      // Find the actual term ID from the database
+      const { data: termData } = await supabase
+        .from('terms')
+        .select('id')
+        .eq('text', item.term)
+        .single();
+
+      if (!termData) {
+        throw new Error('Term not found');
+      }
+
+      const { data, error } = await supabase.functions.invoke('manage-favorites', {
+        body: { 
+          action: item.is_favorite ? 'remove' : 'add',
+          itemId: termData.id,
+          itemType: 'term'
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      // Update local state
+      setLookups(prev => prev.map(lookup => 
+        lookup.id === itemId 
+          ? { ...lookup, is_favorite: !lookup.is_favorite }
+          : lookup
+      ));
+
+      setFavorites(prev => {
+        if (item.is_favorite) {
+          return prev.filter(f => f.id !== itemId);
+        } else {
+          return [...prev, { ...item, is_favorite: true }];
+        }
+      });
+
+      toast({
+        title: "Updated",
+        description: data.message || "Favorite status updated.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Update failed",
+        description: error.message || "Unable to update favorite.",
+        variant: "destructive",
+      });
+    }
   };
 
   const getConfidenceColor = (confidence: string) => {

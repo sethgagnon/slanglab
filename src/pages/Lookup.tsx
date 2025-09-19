@@ -17,6 +17,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface DefinitionData {
@@ -55,40 +56,24 @@ const Lookup = () => {
 
     setLoading(true);
     try {
-      // TODO: Replace with actual API call to edge function
-      // Simulate API response for now
-      setTimeout(() => {
-        setDefinition({
-          meaning: searchTerm === 'mid' 
-            ? 'Average, mediocre, or of poor quality' 
-            : 'Definition not yet available - please check back later',
-          tone: searchTerm === 'mid' ? 'neutral' : 'neutral',
-          example: searchTerm === 'mid' 
-            ? 'That movie was pretty mid, nothing special.' 
-            : 'Example not available yet.',
-          related: searchTerm === 'mid' ? ['basic', 'mediocre', 'average'] : [],
-          warning: searchTerm === 'mid' ? '' : 'Limited source data available',
-          citations: searchTerm === 'mid' ? [
-            {
-              title: 'Urban Dictionary',
-              url: 'https://urbandictionary.com',
-              quote: 'Mid means mediocre or average',
-              date: '2024-01-15'
-            }
-          ] : [],
-          confidence: searchTerm === 'mid' ? 'High' : 'Low'
-        });
-        setLoading(false);
-      }, 1500);
+      const { data, error } = await supabase.functions.invoke('lookup-term', {
+        body: { term: searchTerm }
+      });
 
-      // Update URL
+      if (error) {
+        throw error;
+      }
+
+      setDefinition(data);
       setSearchParams({ q: searchTerm });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Search error:', error);
       toast({
         title: "Search failed",
-        description: "Unable to fetch definition. Please try again.",
+        description: error.message || "Unable to fetch definition. Please try again.",
         variant: "destructive",
       });
+    } finally {
       setLoading(false);
     }
   };
@@ -101,11 +86,42 @@ const Lookup = () => {
       });
       return;
     }
-    
-    toast({
-      title: "Saved!",
-      description: "Term added to your favorites.",
-    });
+
+    try {
+      // Get term ID first
+      const { data: termData } = await supabase
+        .from('terms')
+        .select('id')
+        .eq('normalized_text', query.toLowerCase().trim().replace(/\s+/g, '-'))
+        .single();
+
+      if (!termData) {
+        throw new Error('Term not found');
+      }
+
+      const { data, error } = await supabase.functions.invoke('manage-favorites', {
+        body: { 
+          action: 'add',
+          itemId: termData.id,
+          itemType: 'term'
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+      
+      toast({
+        title: "Saved!",
+        description: data.message || "Term added to your favorites.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Save failed",
+        description: error.message || "Unable to save term.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleShare = async () => {

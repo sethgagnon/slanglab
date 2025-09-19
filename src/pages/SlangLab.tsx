@@ -16,6 +16,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface Creation {
@@ -54,60 +55,29 @@ const SlangLab = () => {
 
     setLoading(true);
     try {
-      // TODO: Replace with actual API call to edge function
-      // Simulate API response
-      setTimeout(() => {
-        const mockCreations: Creation[] = [
-          {
-            id: '1',
-            phrase: 'chef\'s choice',
-            meaning: 'something perfectly selected',
-            example: 'Your outfit today is chef\'s choice!',
-            safe_flag: true,
-            votes: 0
-          },
-          {
-            id: '2',
-            phrase: 'mood boost',
-            meaning: 'something that instantly improves your day',
-            example: 'That compliment was a real mood boost.',
-            safe_flag: true,
-            votes: 0
-          },
-          {
-            id: '3',
-            phrase: 'golden era',
-            meaning: 'peak performance or excellence',
-            example: 'You\'re in your golden era right now.',
-            safe_flag: true,
-            votes: 0
-          },
-          {
-            id: '4',
-            phrase: 'smooth operator',
-            meaning: 'someone handling things effortlessly',
-            example: 'Look at you being a smooth operator.',
-            safe_flag: true,
-            votes: 0
-          },
-          {
-            id: '5',
-            phrase: 'energy drink',
-            meaning: 'person who brings positive vibes',
-            example: 'You\'re like a human energy drink today.',
-            safe_flag: true,
-            votes: 0
-          }
-        ];
-        setCreations(mockCreations);
-        setLoading(false);
-      }, 2000);
-    } catch (error) {
+      const { data, error } = await supabase.functions.invoke('generate-slang', {
+        body: { vibe: selectedVibe }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      const mockCreationsWithIds = data.creations.map((creation: any, index: number) => ({
+        ...creation,
+        id: `${Date.now()}_${index}`,
+        votes: 0
+      }));
+
+      setCreations(mockCreationsWithIds);
+    } catch (error: any) {
+      console.error('Generation error:', error);
       toast({
         title: "Generation failed",
-        description: "Unable to generate new slang. Please try again.",
+        description: error.message || "Unable to generate new slang. Please try again.",
         variant: "destructive",
       });
+    } finally {
       setLoading(false);
     }
   };
@@ -121,16 +91,35 @@ const SlangLab = () => {
       return;
     }
 
-    setCreations(prev => prev.map(creation => 
-      creation.id === creationId 
-        ? { ...creation, votes: creation.votes + value }
-        : creation
-    ));
+    try {
+      const { data, error } = await supabase.functions.invoke('vote-creation', {
+        body: { 
+          creationId,
+          value
+        }
+      });
 
-    toast({
-      title: "Vote recorded",
-      description: "Thanks for your feedback!",
-    });
+      if (error) {
+        throw error;
+      }
+
+      setCreations(prev => prev.map(creation => 
+        creation.id === creationId 
+          ? { ...creation, votes: data.newScore }
+          : creation
+      ));
+
+      toast({
+        title: "Vote recorded",
+        description: data.message || "Thanks for your feedback!",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Vote failed",
+        description: error.message || "Unable to record vote.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSave = async (creationId: string) => {
