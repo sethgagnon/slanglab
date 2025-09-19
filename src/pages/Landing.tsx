@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Search, Sparkles, Shield, TrendingUp } from 'lucide-react';
+import { useTrendingTerms } from '@/hooks/useTrendingTerms';
 
 const DEMO_TERMS = [
   { term: 'mid', confidence: 'High', tone: 'neutral' },
@@ -20,6 +21,7 @@ const DEMO_TERMS = [
 
 const Landing = () => {
   const navigate = useNavigate();
+  const { trendingTerms, lastUpdated } = useTrendingTerms();
 
   const handleTermClick = (term: string) => {
     navigate(`/lookup?q=${encodeURIComponent(term)}`);
@@ -106,16 +108,21 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Demo Terms */}
+      {/* Trending Terms */}
       <section className="container mx-auto px-4 py-16">
         <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold mb-4">Try These Examples</h2>
+          <h2 className="text-3xl font-bold mb-4">Trending Slang</h2>
           <p className="text-muted-foreground">
-            Click any term below to see how SlangLab works
+            Most searched terms in the last 30 days
           </p>
+          {lastUpdated && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Last updated: {new Date(lastUpdated).toLocaleDateString()}
+            </p>
+          )}
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {DEMO_TERMS.map((item) => (
+          {trendingTerms.map((item) => (
             <Card 
               key={item.term} 
               className="cursor-pointer transition-colors hover:bg-accent"
