@@ -51,8 +51,7 @@ const Landing = () => {
       <section className="container mx-auto px-4 py-16 text-center">
         <div className="mx-auto max-w-4xl">
           <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
-            Real-Time Slang
-            <span className="text-primary"> Decoder</span>
+            Decode Slang. Create Slang. Track the Trend.
           </h1>
           <p className="mb-8 text-xl text-muted-foreground">
             Get evidence-based definitions with confidence scores, safety labels, and trusted citations. 
