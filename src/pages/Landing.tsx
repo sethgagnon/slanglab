@@ -85,7 +85,7 @@ const Landing = () => {
             <Button asChild size="lg" className="text-lg">
               <Link to="/lookup">
                 <Search className="mr-2 h-5 w-5" />
-                Decode Slang Now
+                Decode a Slang
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="text-lg">
