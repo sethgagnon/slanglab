@@ -55,8 +55,8 @@ const Admin = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
 
-  // Check if user is admin - simplified check for demo
-  const isAdmin = true; // In production, this would check user.role === 'admin'
+  // TODO: In production, this should check the user's role from the database
+  const isAdmin = true; // For now, assuming admin access for testing
 
   useEffect(() => {
     if (user && isAdmin) {
