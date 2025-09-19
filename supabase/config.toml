@@ -26,3 +26,6 @@ verify_jwt = true
 
 [functions.customer-portal]
 verify_jwt = true
+
+[functions.log-share]
+verify_jwt = true

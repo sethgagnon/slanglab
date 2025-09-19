@@ -346,6 +346,47 @@ export type Database = {
           },
         ]
       }
+      slang_shares: {
+        Row: {
+          created_at: string
+          creation_id: string
+          id: string
+          platform: string
+          share_content: Json | null
+          share_url: string | null
+          shared_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          creation_id: string
+          id?: string
+          platform: string
+          share_content?: Json | null
+          share_url?: string | null
+          shared_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          creation_id?: string
+          id?: string
+          platform?: string
+          share_content?: Json | null
+          share_url?: string | null
+          shared_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slang_shares_creation_id_fkey"
+            columns: ["creation_id"]
+            isOneToOne: false
+            referencedRelation: "creations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       source_rules: {
         Row: {
           created_at: string

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { SharePanel } from '@/components/SharePanel';
 
 interface Creation {
   id: string;
@@ -40,8 +41,34 @@ const SlangLab = () => {
   const [selectedVibe, setSelectedVibe] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [creations, setCreations] = useState<Creation[]>([]);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+
+  // Fetch user profile to check plan status
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('plan')
+          .eq('user_id', user.id)
+          .single();
+
+        if (!error && data) {
+          setUserProfile(data);
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+      }
+    };
+
+    fetchUserProfile();
+  }, [user]);
+
+  const isLabPro = userProfile?.plan === 'pro' || userProfile?.plan === 'premium';
 
   const handleGenerate = async () => {
     if (!selectedVibe) {
@@ -280,43 +307,62 @@ const SlangLab = () => {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex items-center justify-between pt-2">
-                      <div className="flex items-center space-x-1">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleVote(creation.id, 1)}
-                        >
-                          <ThumbsUp className="h-4 w-4" />
-                        </Button>
-                        <span className="text-sm text-muted-foreground px-1">
-                          {creation.votes}
-                        </span>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleVote(creation.id, -1)}
-                        >
-                          <ThumbsDown className="h-4 w-4" />
-                        </Button>
+                    <div className="space-y-3 pt-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleVote(creation.id, 1)}
+                          >
+                            <ThumbsUp className="h-4 w-4" />
+                          </Button>
+                          <span className="text-sm text-muted-foreground px-1">
+                            {creation.votes}
+                          </span>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleVote(creation.id, -1)}
+                          >
+                            <ThumbsDown className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        <div className="flex items-center space-x-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleSave(creation.id)}
+                          >
+                            <Star className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleCopy(creation.example)}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
 
-                      <div className="flex items-center space-x-1">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleSave(creation.id)}
-                        >
-                          <Star className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleCopy(creation.example)}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      {/* Share Panel for LabPro users */}
+                      {isLabPro && user && (
+                        <div className="border-t border-border pt-3">
+                          <p className="text-xs text-muted-foreground mb-2">Share your creation:</p>
+                          <SharePanel 
+                            creation={{
+                              id: creation.id,
+                              phrase: creation.phrase,
+                              meaning: creation.meaning,
+                              example: creation.example,
+                              vibe: selectedVibe
+                            }}
+                            userId={user.id}
+                          />
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
