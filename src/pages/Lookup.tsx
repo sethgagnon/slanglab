@@ -52,11 +52,16 @@ const Lookup = () => {
 
   useEffect(() => {
     const q = searchParams.get('q');
+    console.log('useEffect triggered - URL query:', q, 'current query state:', query, 'definition:', definition);
     if (q && q.trim()) {
+      console.log('Setting query and triggering search for:', q);
       setQuery(q);
-      // Trigger search immediately for URL query parameters
-      if (q !== query) {
+      // Always trigger search when URL query parameter is present and no definition is loaded
+      if (!definition || q !== query) {
+        console.log('Triggering search for:', q);
         performSearch(q);
+      } else {
+        console.log('Search not triggered - definition already exists for:', q);
       }
     }
   }, [searchParams]);
