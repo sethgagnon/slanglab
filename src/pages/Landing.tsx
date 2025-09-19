@@ -5,30 +5,57 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Search, Sparkles, Shield, TrendingUp } from 'lucide-react';
 import { useTrendingTerms } from '@/hooks/useTrendingTerms';
-
-const DEMO_TERMS = [
-  { term: 'mid', confidence: 'High', tone: 'neutral' },
-  { term: 'rizz', confidence: 'High', tone: 'positive' },
-  { term: 'delulu', confidence: 'Medium', tone: 'niche' },
-  { term: 'lowkey', confidence: 'High', tone: 'neutral' },
-  { term: 'gyat', confidence: 'Medium', tone: 'adult' },
-  { term: 'girl dinner', confidence: 'High', tone: 'neutral' },
-  { term: 'ratio', confidence: 'High', tone: 'neutral' },
-  { term: 'sigma', confidence: 'Medium', tone: 'niche' },
-  { term: 'skibidi', confidence: 'Low', tone: 'niche' },
-  { term: 'the ick', confidence: 'High', tone: 'insulting' }
-];
-
+const DEMO_TERMS = [{
+  term: 'mid',
+  confidence: 'High',
+  tone: 'neutral'
+}, {
+  term: 'rizz',
+  confidence: 'High',
+  tone: 'positive'
+}, {
+  term: 'delulu',
+  confidence: 'Medium',
+  tone: 'niche'
+}, {
+  term: 'lowkey',
+  confidence: 'High',
+  tone: 'neutral'
+}, {
+  term: 'gyat',
+  confidence: 'Medium',
+  tone: 'adult'
+}, {
+  term: 'girl dinner',
+  confidence: 'High',
+  tone: 'neutral'
+}, {
+  term: 'ratio',
+  confidence: 'High',
+  tone: 'neutral'
+}, {
+  term: 'sigma',
+  confidence: 'Medium',
+  tone: 'niche'
+}, {
+  term: 'skibidi',
+  confidence: 'Low',
+  tone: 'niche'
+}, {
+  term: 'the ick',
+  confidence: 'High',
+  tone: 'insulting'
+}];
 const Landing = () => {
   const navigate = useNavigate();
-  const { trendingTerms, lastUpdated } = useTrendingTerms();
-
+  const {
+    trendingTerms,
+    lastUpdated
+  } = useTrendingTerms();
   const handleTermClick = (term: string) => {
     navigate(`/lookup?q=${encodeURIComponent(term)}`);
   };
-
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border px-4 py-4">
         <div className="container mx-auto flex items-center justify-between">
@@ -53,10 +80,7 @@ const Landing = () => {
           <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
             Decode Slang. Create Slang. Track the Trend.
           </h1>
-          <p className="mb-8 text-xl text-muted-foreground">
-            Get evidence-based definitions with confidence scores, safety labels, and trusted citations. 
-            Perfect for parents, teachers, and anyone navigating modern language.
-          </p>
+          <p className="mb-8 text-xl text-muted-foreground">Type a word like rizz, mid, or sus. Get the meaning fast. Make your own slang and see if it spreads.</p>
           <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
             <Button asChild size="lg" className="text-lg">
               <Link to="/lookup">
@@ -114,48 +138,24 @@ const Landing = () => {
           <p className="text-muted-foreground">
             Most searched terms in the last 30 days
           </p>
-          {lastUpdated && (
-            <p className="text-xs text-muted-foreground mt-2">
+          {lastUpdated && <p className="text-xs text-muted-foreground mt-2">
               Last updated: {new Date(lastUpdated).toLocaleDateString()}
-            </p>
-          )}
+            </p>}
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {trendingTerms.map((item) => (
-            <Card 
-              key={item.term} 
-              className="cursor-pointer transition-colors hover:bg-accent"
-              onClick={() => handleTermClick(item.term)}
-            >
+          {trendingTerms.map(item => <Card key={item.term} className="cursor-pointer transition-colors hover:bg-accent" onClick={() => handleTermClick(item.term)}>
               <CardContent className="p-4 text-center">
                 <h3 className="font-semibold mb-2">{item.term}</h3>
                 <div className="flex justify-center gap-2">
-                  <Badge 
-                    variant="secondary" 
-                    className={`text-xs ${
-                      item.confidence === 'High' ? 'bg-confidence-high text-white' :
-                      item.confidence === 'Medium' ? 'bg-confidence-medium text-white' :
-                      'bg-confidence-low text-white'
-                    }`}
-                  >
+                  <Badge variant="secondary" className={`text-xs ${item.confidence === 'High' ? 'bg-confidence-high text-white' : item.confidence === 'Medium' ? 'bg-confidence-medium text-white' : 'bg-confidence-low text-white'}`}>
                     {item.confidence}
                   </Badge>
-                  <Badge 
-                    variant="outline" 
-                    className={`text-xs ${
-                      item.tone === 'positive' ? 'border-tone-positive text-tone-positive' :
-                      item.tone === 'neutral' ? 'border-tone-neutral text-tone-neutral' :
-                      item.tone === 'insulting' ? 'border-tone-insulting text-tone-insulting' :
-                      item.tone === 'adult' ? 'border-tone-adult text-tone-adult' :
-                      'border-tone-niche text-tone-niche'
-                    }`}
-                  >
+                  <Badge variant="outline" className={`text-xs ${item.tone === 'positive' ? 'border-tone-positive text-tone-positive' : item.tone === 'neutral' ? 'border-tone-neutral text-tone-neutral' : item.tone === 'insulting' ? 'border-tone-insulting text-tone-insulting' : item.tone === 'adult' ? 'border-tone-adult text-tone-adult' : 'border-tone-niche text-tone-niche'}`}>
                     {item.tone}
                   </Badge>
                 </div>
               </CardContent>
-            </Card>
-          ))}
+            </Card>)}
         </div>
       </section>
 
@@ -211,8 +211,6 @@ const Landing = () => {
           <p>&copy; 2024 SlangLab. Made for safer, smarter language understanding.</p>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 };
-
 export default Landing;
