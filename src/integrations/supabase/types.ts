@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      anonymous_searches: {
+        Row: {
+          created_at: string
+          id: string
+          ip_address: string | null
+          search_count: number
+          session_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          search_count?: number
+          session_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          search_count?: number
+          session_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       banned_terms: {
         Row: {
           created_at: string
@@ -97,6 +124,7 @@ export type Database = {
       limits: {
         Row: {
           created_at: string
+          creations_used: number
           date: string
           generations_used: number
           id: string
@@ -105,6 +133,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          creations_used?: number
           date: string
           generations_used?: number
           id?: string
@@ -113,6 +142,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          creations_used?: number
           date?: string
           generations_used?: number
           id?: string
