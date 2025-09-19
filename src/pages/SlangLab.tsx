@@ -42,6 +42,11 @@ const SlangLab = () => {
   const [loading, setLoading] = useState(false);
   const [creations, setCreations] = useState<Creation[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [generationStatus, setGenerationStatus] = useState<{
+    isFromAI: boolean;
+    message: string;
+    canRetry: boolean;
+  } | null>(null);
   const { user, signOut } = useAuth();
   const { toast } = useToast();
 
@@ -81,6 +86,7 @@ const SlangLab = () => {
     }
 
     setLoading(true);
+    setGenerationStatus(null); // Clear previous status
     try {
       const { data, error } = await supabase.functions.invoke('generate-slang', {
         body: { vibe: selectedVibe }
@@ -97,6 +103,13 @@ const SlangLab = () => {
       }));
 
       setCreations(mockCreationsWithIds);
+      
+      // Set generation status for user feedback
+      setGenerationStatus({
+        isFromAI: data.isFromAI || false,
+        message: data.message || 'Slang generated successfully!',
+        canRetry: data.canRetry || false
+      });
     } catch (error: any) {
       console.error('Generation error:', error);
       toast({
@@ -280,19 +293,56 @@ const SlangLab = () => {
         {/* Generated Creations */}
         {creations.length > 0 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-center">Fresh Creations</h2>
+            {/* Generation Status */}
+            {generationStatus && (
+              <Card className="mx-auto max-w-2xl">
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-2">
+                    {generationStatus.isFromAI ? (
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                    ) : (
+                      <Badge variant="outline" className="bg-yellow-50">
+                        Fallback
+                      </Badge>
+                    )}
+                    <p className="text-sm font-medium">{generationStatus.message}</p>
+                    {generationStatus.canRetry && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleGenerate}
+                        disabled={loading}
+                      >
+                        Try Again
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            <h2 className="text-xl font-semibold text-center">
+              {generationStatus?.isFromAI ? 'Fresh AI Creations' : 'Creative Slang Collection'}
+            </h2>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {creations.map((creation) => (
                 <Card key={creation.id} className="relative">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <CardTitle className="text-lg">{creation.phrase}</CardTitle>
-                      {creation.safe_flag && (
-                        <Badge variant="secondary" className="text-xs">
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Safe
-                        </Badge>
-                      )}
+                      <div className="flex gap-1">
+                        {creation.safe_flag && (
+                          <Badge variant="secondary" className="text-xs">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Safe
+                          </Badge>
+                        )}
+                        {generationStatus && !generationStatus.isFromAI && (
+                          <Badge variant="outline" className="text-xs bg-blue-50">
+                            Curated
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">

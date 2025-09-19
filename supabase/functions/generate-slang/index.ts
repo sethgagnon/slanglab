@@ -92,11 +92,11 @@ serve(async (req) => {
     }
 
     // Generate slang using OpenAI
-    const creations = await generateSlang(vibe);
-    console.log('Generated creations:', creations);
+    const result = await generateSlang(vibe);
+    console.log('Generated result:', result);
 
     // Moderate the generated content
-    const moderatedCreations = await moderateCreations(creations);
+    const moderatedCreations = await moderateCreations(result.creations);
     console.log('Moderated creations:', moderatedCreations);
 
     // Save to database if user is authenticated
@@ -105,7 +105,17 @@ serve(async (req) => {
       await updateGenerationLimits(userId);
     }
 
-    return new Response(JSON.stringify({ creations: moderatedCreations }), {
+    // Provide detailed response with generation status
+    const response = {
+      creations: moderatedCreations,
+      isFromAI: result.isFromAI,
+      message: result.isFromAI 
+        ? 'Fresh AI-generated slang created just for you!'
+        : result.error || 'Using creative fallback content - try again in a moment for fresh AI results!',
+      canRetry: !result.isFromAI && result.error?.includes('rate limit')
+    };
+
+    return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
@@ -120,10 +130,15 @@ serve(async (req) => {
   }
 });
 
-async function generateSlang(vibe: string) {
+async function generateSlang(vibe: string, retryCount = 0): Promise<{ creations: any[], isFromAI: boolean, error?: string }> {
   const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
   if (!openaiApiKey) {
-    throw new Error('OpenAI API key not configured');
+    console.error('OpenAI API key not configured');
+    return { 
+      creations: getFallbackCreations(vibe), 
+      isFromAI: false,
+      error: 'OpenAI API key not configured' 
+    };
   }
 
   const vibePrompt = VIBES[vibe as keyof typeof VIBES];
@@ -170,7 +185,28 @@ Return only the JSON array, no other text.`;
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error(`OpenAI API error: ${response.status} - ${errorText}`);
+      
+      // Handle rate limiting with exponential backoff
+      if (response.status === 429 && retryCount < 3) {
+        const backoffDelay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+        console.log(`Rate limited. Retrying in ${backoffDelay}ms (attempt ${retryCount + 1}/3)`);
+        
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
+        return generateSlang(vibe, retryCount + 1);
+      }
+      
+      // Return fallback with specific error info
+      const errorMsg = response.status === 429 
+        ? 'OpenAI rate limit exceeded. Using creative fallback content.' 
+        : `OpenAI API error: ${response.status}`;
+        
+      return { 
+        creations: getFallbackCreations(vibe), 
+        isFromAI: false,
+        error: errorMsg
+      };
     }
 
     const data = await response.json();
@@ -181,15 +217,30 @@ Return only the JSON array, no other text.`;
       if (!Array.isArray(creations) || creations.length !== 5) {
         throw new Error('Invalid response format');
       }
-      return creations;
+      console.log('Successfully generated fresh AI content');
+      return { creations, isFromAI: true };
     } catch (parseError) {
       console.error('Failed to parse OpenAI response:', content);
-      throw new Error('Invalid response format from AI');
+      return { 
+        creations: getFallbackCreations(vibe), 
+        isFromAI: false,
+        error: 'Invalid AI response format'
+      };
     }
   } catch (error) {
     console.error('OpenAI API error:', error);
-    // Return creative fallback creations
-    return [
+    return { 
+      creations: getFallbackCreations(vibe), 
+      isFromAI: false,
+      error: error.message || 'Unknown API error'
+    };
+  }
+}
+
+function getFallbackCreations(vibe: string) {
+  // Return vibe-specific fallbacks where possible
+  const vibeSpecificFallbacks = {
+    'praise': [
       {
         phrase: 'aesthetic architect',
         meaning: 'someone who effortlessly curates beautiful vibes and experiences in their daily life',
@@ -201,22 +252,77 @@ Return only the JSON array, no other text.`;
         example: 'Thanks for being my daily serotonin supplier when work gets chaotic.'
       },
       {
-        phrase: 'chaos coordinator',
-        meaning: 'someone who thrives in messy situations and somehow makes everything work perfectly',
-        example: 'You\'re like a chaos coordinator - turning this disaster into something amazing.'
-      },
-      {
         phrase: 'vibe calibrator',
         meaning: 'a person who naturally adjusts the energy of any room to match what\'s needed',
         example: 'She\'s the ultimate vibe calibrator - always knows exactly what the moment requires.'
       },
       {
+        phrase: 'energy curator',
+        meaning: 'someone who expertly manages and elevates the atmosphere wherever they go',
+        example: 'You\'re like an energy curator - turning every hangout into something special.'
+      },
+      {
+        phrase: 'mood alchemist',
+        meaning: 'a person who magically transforms negative situations into positive experiences',
+        example: 'That mood alchemist just turned our disaster into the best night ever.'
+      }
+    ],
+    'hype': [
+      {
         phrase: 'legendary specimen',
         meaning: 'someone who consistently does remarkable things that leave everyone genuinely impressed',
         example: 'That presentation was incredible - you\'re honestly a legendary specimen at this point.'
+      },
+      {
+        phrase: 'apex achiever',
+        meaning: 'a person who reaches the highest level of success in everything they attempt',
+        example: 'Look at that apex achiever crushing another impossible deadline.'
+      },
+      {
+        phrase: 'victory generator',
+        meaning: 'someone who creates winning moments and achievements wherever they focus their energy',
+        example: 'She\'s a total victory generator - everything she touches turns to gold.'
+      },
+      {
+        phrase: 'excellence engine',
+        meaning: 'a person who consistently produces outstanding results with seemingly effortless skill',
+        example: 'That excellence engine just delivered another masterpiece project.'
+      },
+      {
+        phrase: 'momentum master',
+        meaning: 'someone who builds and maintains incredible forward progress in any situation',
+        example: 'The momentum master has us moving from zero to hero in record time.'
       }
-    ];
-  }
+    ]
+  };
+
+  return vibeSpecificFallbacks[vibe as keyof typeof vibeSpecificFallbacks] || [
+    {
+      phrase: 'chaos coordinator',
+      meaning: 'someone who thrives in messy situations and somehow makes everything work perfectly',
+      example: 'You\'re like a chaos coordinator - turning this disaster into something amazing.'
+    },
+    {
+      phrase: 'vibe calibrator',
+      meaning: 'a person who naturally adjusts the energy of any room to match what\'s needed',
+      example: 'She\'s the ultimate vibe calibrator - always knows exactly what the moment requires.'
+    },
+    {
+      phrase: 'energy architect',
+      meaning: 'someone who designs and builds positive experiences for everyone around them',
+      example: 'That energy architect just transformed our boring meeting into something fun.'
+    },
+    {
+      phrase: 'mood wizard',
+      meaning: 'a person who has magical abilities to lift spirits and create joy',
+      example: 'Our mood wizard always knows exactly what to say to make everyone smile.'
+    },
+    {
+      phrase: 'vibe specialist',
+      meaning: 'someone with expert-level skills at reading and improving any social atmosphere',
+      example: 'The vibe specialist sensed the tension and immediately fixed it with perfect timing.'
+    }
+  ];
 }
 
 async function moderateCreations(creations: any[]) {
