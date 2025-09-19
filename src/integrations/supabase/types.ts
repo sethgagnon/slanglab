@@ -130,6 +130,7 @@ export type Database = {
           id: string
           lookups_used: number
           user_id: string
+          week_start_date: string | null
         }
         Insert: {
           created_at?: string
@@ -139,6 +140,7 @@ export type Database = {
           id?: string
           lookups_used?: number
           user_id: string
+          week_start_date?: string | null
         }
         Update: {
           created_at?: string
@@ -148,6 +150,7 @@ export type Database = {
           id?: string
           lookups_used?: number
           user_id?: string
+          week_start_date?: string | null
         }
         Relationships: []
       }
@@ -424,6 +427,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_week_start: {
+        Args: { input_date?: string }
+        Returns: string
+      }
       is_profile_owner: {
         Args: { profile_user_id: string }
         Returns: boolean
