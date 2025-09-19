@@ -215,7 +215,7 @@ async function synthesizeDefinition(term: string, snippets: any[]) {
 
   const prompt = `You write neutral, family-safe slang definitions with citations.
 Use ONLY the provided snippets. No speculation. If sources conflict, note both and set confidence to "Medium".
-Output JSON only.
+Output ONLY valid JSON - no markdown, no explanations, no code blocks.
 
 JSON schema:
 {
@@ -252,21 +252,56 @@ TERM: ${term}`;
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error('OpenAI API error response:', errorText);
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
     const content = data.choices[0].message.content;
+    console.log('Raw OpenAI response:', content);
     
+    // Try to parse the content with multiple strategies
+    let parsedContent;
     try {
-      return JSON.parse(content);
+      // Strategy 1: Direct JSON parse
+      parsedContent = JSON.parse(content);
     } catch (parseError) {
-      console.error('Failed to parse OpenAI response:', content);
-      throw new Error('Invalid response format from AI');
+      try {
+        // Strategy 2: Extract JSON from markdown code blocks
+        const jsonMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+        if (jsonMatch) {
+          console.log('Found JSON in markdown blocks, extracting...');
+          parsedContent = JSON.parse(jsonMatch[1]);
+        } else {
+          // Strategy 3: Look for JSON object pattern
+          const jsonObjectMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonObjectMatch) {
+            console.log('Found JSON object pattern, extracting...');
+            parsedContent = JSON.parse(jsonObjectMatch[0]);
+          } else {
+            throw new Error('No valid JSON found in response');
+          }
+        }
+      } catch (secondParseError) {
+        console.error('All parsing strategies failed. Raw content:', content);
+        console.error('Parse errors:', parseError, secondParseError);
+        throw new Error('Unable to parse AI response as JSON');
+      }
     }
+    
+    // Validate the parsed content has required fields
+    if (!parsedContent.meaning || !parsedContent.tone || !parsedContent.confidence) {
+      console.error('Parsed content missing required fields:', parsedContent);
+      throw new Error('AI response missing required fields');
+    }
+    
+    console.log('Successfully parsed OpenAI response:', parsedContent);
+    return parsedContent;
+    
   } catch (error) {
-    console.error('OpenAI API error:', error);
-    // Return fallback definition
+    console.error('OpenAI synthesis error:', error);
+    // Return fallback definition with better error context
     return {
       meaning: snippets.length > 0 ? `Definition for "${term}" not yet available - please check back later` : 'Not enough reliable sources found yet.',
       tone: 'neutral',
