@@ -57,6 +57,18 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        confidence: {
+          high: "hsl(var(--confidence-high))",
+          medium: "hsl(var(--confidence-medium))",
+          low: "hsl(var(--confidence-low))",
+        },
+        tone: {
+          positive: "hsl(var(--tone-positive))",
+          neutral: "hsl(var(--tone-neutral))",
+          insulting: "hsl(var(--tone-insulting))",
+          adult: "hsl(var(--tone-adult))",
+          niche: "hsl(var(--tone-niche))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

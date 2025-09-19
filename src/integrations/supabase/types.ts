@@ -14,7 +14,369 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      banned_terms: {
+        Row: {
+          created_at: string
+          id: string
+          phrase: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          phrase: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          phrase?: string
+        }
+        Relationships: []
+      }
+      creations: {
+        Row: {
+          created_at: string
+          example: string
+          id: string
+          meaning: string
+          phrase: string
+          safe_flag: boolean
+          user_id: string
+          vibe: string
+        }
+        Insert: {
+          created_at?: string
+          example: string
+          id?: string
+          meaning: string
+          phrase: string
+          safe_flag?: boolean
+          user_id: string
+          vibe: string
+        }
+        Update: {
+          created_at?: string
+          example?: string
+          id?: string
+          meaning?: string
+          phrase?: string
+          safe_flag?: boolean
+          user_id?: string
+          vibe?: string
+        }
+        Relationships: []
+      }
+      favorites: {
+        Row: {
+          created_at: string
+          id: string
+          term_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          term_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          term_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favorites_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      limits: {
+        Row: {
+          created_at: string
+          date: string
+          generations_used: number
+          id: string
+          lookups_used: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          generations_used?: number
+          id?: string
+          lookups_used?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          generations_used?: number
+          id?: string
+          lookups_used?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      lookups: {
+        Row: {
+          created_at: string
+          id: string
+          term_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          term_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          term_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lookups_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string | null
+          plan: string | null
+          role: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          plan?: string | null
+          role?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          plan?: string | null
+          role?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      reports: {
+        Row: {
+          closed_at: string | null
+          created_at: string
+          id: string
+          reason: string
+          status: string
+          term_id: string
+          user_id: string
+        }
+        Insert: {
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          reason: string
+          status?: string
+          term_id: string
+          user_id: string
+        }
+        Update: {
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          reason?: string
+          status?: string
+          term_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      senses: {
+        Row: {
+          confidence: string
+          created_at: string
+          example: string
+          id: string
+          last_checked_at: string
+          meaning: string
+          related_json: Json | null
+          term_id: string
+          tone: string
+          warning: string | null
+        }
+        Insert: {
+          confidence: string
+          created_at?: string
+          example: string
+          id?: string
+          last_checked_at?: string
+          meaning: string
+          related_json?: Json | null
+          term_id: string
+          tone: string
+          warning?: string | null
+        }
+        Update: {
+          confidence?: string
+          created_at?: string
+          example?: string
+          id?: string
+          last_checked_at?: string
+          meaning?: string
+          related_json?: Json | null
+          term_id?: string
+          tone?: string
+          warning?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "senses_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      source_rules: {
+        Row: {
+          created_at: string
+          domain: string
+          id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          domain: string
+          id?: string
+          status: string
+        }
+        Update: {
+          created_at?: string
+          domain?: string
+          id?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      sources: {
+        Row: {
+          created_at: string
+          id: string
+          published_at: string | null
+          publisher: string | null
+          sense_id: string
+          snippet: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          published_at?: string | null
+          publisher?: string | null
+          sense_id: string
+          snippet: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          published_at?: string | null
+          publisher?: string | null
+          sense_id?: string
+          snippet?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sources_sense_id_fkey"
+            columns: ["sense_id"]
+            isOneToOne: false
+            referencedRelation: "senses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      terms: {
+        Row: {
+          created_at: string
+          id: string
+          normalized_text: string
+          text: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          normalized_text: string
+          text: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          normalized_text?: string
+          text?: string
+        }
+        Relationships: []
+      }
+      votes: {
+        Row: {
+          created_at: string
+          creation_id: string
+          id: string
+          user_id: string
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          creation_id: string
+          id?: string
+          user_id: string
+          value: number
+        }
+        Update: {
+          created_at?: string
+          creation_id?: string
+          id?: string
+          user_id?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "votes_creation_id_fkey"
+            columns: ["creation_id"]
+            isOneToOne: false
+            referencedRelation: "creations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
