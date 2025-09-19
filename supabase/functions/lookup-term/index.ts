@@ -298,12 +298,21 @@ async function fetchSnippets(term: string) {
 }
 
 async function extractDefinitionFromSources(term: string, snippets: any[]) {
-  console.log('Extracting definition directly from sources for term:', term);
-  console.log('Available snippets:', snippets.length);
+  console.log(`[SYNTHESIS] Starting intelligent analysis for term: ${term}`);
+  console.log(`[SYNTHESIS] Total snippets available: ${snippets.length}`);
   
-  if (!snippets.length) {
+  // Filter and categorize snippets by source reliability
+  const validSnippets = snippets.filter(snippet => 
+    snippet.snippet && snippet.snippet.length > 20 && 
+    !snippet.title?.includes('Error') && 
+    !snippet.snippet?.includes('search API error')
+  );
+  
+  console.log(`[SYNTHESIS] Valid snippets after filtering: ${validSnippets.length}`);
+  
+  if (validSnippets.length === 0) {
     return {
-      meaning: `No definition found for "${term}" in available sources.`,
+      meaning: `No reliable sources found for "${term}"`,
       tone: 'neutral',
       example: '',
       related: [],
@@ -312,168 +321,326 @@ async function extractDefinitionFromSources(term: string, snippets: any[]) {
       confidence: 'Low'
     };
   }
-
-  // Filter out system error snippets
-  const validSnippets = snippets.filter(s => !s.title.includes('Error') && !s.snippet.includes('search API error'));
-  console.log('Valid snippets after filtering:', validSnippets.length);
   
-  if (!validSnippets.length) {
-    return {
-      meaning: `Definition temporarily unavailable for "${term}".`,
-      tone: 'neutral',
-      example: '',
-      related: [],
-      warning: 'Search results temporarily unavailable',
-      citations: [],
-      confidence: 'Low'
+  // Categorize sources by reliability
+  const sourceCategories = {
+    primary: validSnippets.filter(s => s.url?.includes('urbandictionary.com')),
+    secondary: validSnippets.filter(s => s.url?.includes('reddit.com')),
+    tertiary: validSnippets.filter(s => s.url?.includes('tiktok.com')),
+    other: validSnippets.filter(s => 
+      !s.url?.includes('urbandictionary.com') && 
+      !s.url?.includes('reddit.com') && 
+      !s.url?.includes('tiktok.com')
+    )
+  };
+  
+  console.log(`[SYNTHESIS] Source breakdown - Primary: ${sourceCategories.primary.length}, Secondary: ${sourceCategories.secondary.length}, Tertiary: ${sourceCategories.tertiary.length}, Other: ${sourceCategories.other.length}`);
+  
+  // Extract multiple definitions from different sources
+  const extractedDefinitions = [];
+  const extractedExamples = [];
+  const extractedTones = [];
+  
+  // Process all sources in priority order
+  const allSources = [
+    ...sourceCategories.primary,
+    ...sourceCategories.secondary, 
+    ...sourceCategories.tertiary,
+    ...sourceCategories.other
+  ];
+  
+  allSources.forEach((snippet, index) => {
+    console.log(`[SYNTHESIS] Processing snippet ${index + 1} from ${snippet.url || 'unknown'}`);
+    
+    const text = snippet.snippet;
+    const isUrbanDict = snippet.url?.includes('urbandictionary.com');
+    
+    // Extract definitions with multiple patterns
+    const definitionPatterns = [
+      new RegExp(`${term}[\\s:]+(is|means|refers to|stands for)[\\s:]+([^.!?]+)`, 'i'),
+      /(?:meaning|definition)[\s:]*[:\-]?\s*([^.!?]+)/i,
+      isUrbanDict ? /^([^.!?]+[.!?])/ : null, // First sentence for UD only
+      /([A-Z][^.!?]{20,}[.!?])/, // Well-formed sentences
+    ].filter(Boolean);
+    
+    for (const pattern of definitionPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        const definition = match[match.length - 1]?.trim();
+        if (definition && definition.length > 15 && !definition.toLowerCase().includes('example')) {
+          extractedDefinitions.push({
+            text: definition,
+            source: snippet.url,
+            priority: isUrbanDict ? 3 : (snippet.url?.includes('reddit.com') ? 2 : 1),
+            confidence: calculateConfidence(definition, text, isUrbanDict)
+          });
+          console.log(`[SYNTHESIS] Found definition: "${definition.substring(0, 50)}..."`);
+          break;
+        }
+      }
+    }
+    
+    // Extract examples
+    const examplePatterns = [
+      /(?:example|ex)[\s:]+["\"]?([^""\n.!?]+)/i,
+      new RegExp(`[""]([^""]*${term}[^""]*)[""]`, 'i'),
+      /\*([^*]*\*)/g, // Urban Dictionary style examples
+    ];
+    
+    for (const pattern of examplePatterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        const example = match[1].trim();
+        if (example.length > 5 && example.toLowerCase().includes(term.toLowerCase())) {
+          extractedExamples.push({
+            text: example,
+            source: snippet.url,
+            priority: isUrbanDict ? 3 : 1
+          });
+          console.log(`[SYNTHESIS] Found example: "${example}"`);
+          break;
+        }
+      }
+    }
+    
+    // Analyze tone indicators
+    const toneIndicators = {
+      positive: ['positive', 'good', 'awesome', 'great', 'cool', 'amazing', 'wonderful'],
+      negative: ['negative', 'bad', 'awful', 'terrible', 'offensive', 'inappropriate', 'derogatory'],
+      neutral: ['neutral', 'slang', 'term', 'word']
     };
-  }
-
-  // Log snippet content for debugging
-  validSnippets.forEach((snippet, i) => {
-    console.log(`Snippet ${i + 1} from ${snippet.url}:`, snippet.snippet.substring(0, 200));
+    
+    const textLower = text.toLowerCase();
+    Object.entries(toneIndicators).forEach(([tone, indicators]) => {
+      const matches = indicators.filter(indicator => textLower.includes(indicator)).length;
+      if (matches > 0) {
+        extractedTones.push({ tone, strength: matches, source: snippet.url });
+      }
+    });
   });
-
-  let bestDefinition = '';
-  let bestExample = '';
-  let tone = 'neutral';
-  const related: string[] = [];
   
-  // Look for Urban Dictionary style definitions first
-  const urbanSnippet = validSnippets.find(s => s.url.includes('urbandictionary.com'));
+  // Synthesize the best definition from multiple sources
+  const synthesizedDefinition = synthesizeDefinition(extractedDefinitions, term);
+  const bestExample = selectBestExample(extractedExamples, term);
+  const determinedTone = determineTone(extractedTones);
+  const confidence = calculateOverallConfidence(extractedDefinitions, validSnippets.length);
   
-  if (urbanSnippet) {
-    console.log('Found Urban Dictionary snippet');
-    // Urban Dictionary typically has definitions in a structured format
-    // Look for the actual definition text more directly
-    let snippet = urbanSnippet.snippet;
-    
-    // Remove common prefixes from Urban Dictionary
-    snippet = snippet.replace(/^.*?\s+definition\s*:?\s*/i, '');
-    snippet = snippet.replace(/^.*?\s+meaning\s*:?\s*/i, '');
-    
-    // Take the first sentence or up to first period/exclamation/question mark
-    const sentences = snippet.split(/[.!?]/);
-    if (sentences.length > 0 && sentences[0].trim()) {
-      bestDefinition = sentences[0].trim();
-    }
-    
-    // Look for tone indicators
-    const lowerSnippet = snippet.toLowerCase();
-    if (lowerSnippet.includes('charisma') || lowerSnippet.includes('charm') || lowerSnippet.includes('attractive') || lowerSnippet.includes('cool')) {
-      tone = 'positive';
-    } else if (lowerSnippet.includes('negative') || lowerSnippet.includes('bad') || lowerSnippet.includes('insult')) {
-      tone = 'insulting';
-    }
-    
-    // Look for examples in quotes
-    const exampleMatch = snippet.match(/"([^"]+)"/);
-    if (exampleMatch) {
-      bestExample = exampleMatch[1];
-    }
-  }
+  console.log(`[SYNTHESIS] Final synthesized definition: ${synthesizedDefinition}`);
+  console.log(`[SYNTHESIS] Selected example: ${bestExample}`);
+  console.log(`[SYNTHESIS] Determined tone: ${determinedTone}`);
+  console.log(`[SYNTHESIS] Overall confidence: ${confidence}`);
   
-  // If no Urban Dictionary or definition not found, try other sources
-  if (!bestDefinition) {
-    console.log('No Urban Dictionary definition found, trying other sources');
-    for (const snippet of validSnippets) {
-      let text = snippet.snippet;
-      
-      // Try to find definition patterns in any snippet
-      const patterns = [
-        new RegExp(`${term}\\s+(?:is|means|refers to)\\s+([^.!?]+)`, 'i'),
-        new RegExp(`([^.!?]*${term}[^.!?]*?)(?:[.!?]|$)`, 'i'),
-        /^([^.!?]+)/ // First sentence as fallback
-      ];
-      
-      for (const pattern of patterns) {
-        const match = text.match(pattern);
-        if (match && match[1] && match[1].trim().length > 10) {
-          bestDefinition = match[1].trim();
-          console.log('Found definition using pattern:', pattern.source);
-          break;
-        }
-      }
-      
-      if (bestDefinition) break;
-    }
-  }
-
-  // Clean up definition
-  if (bestDefinition) {
-    bestDefinition = bestDefinition
-      .replace(/^[^a-zA-Z]*/, '') // Remove leading non-letters
-      .replace(/\s+/g, ' ') // Normalize whitespace
-      .trim();
-      
-    // Limit to reasonable length
-    const words = bestDefinition.split(' ');
-    if (words.length > 24) {
-      bestDefinition = words.slice(0, 24).join(' ') + '...';
-    }
-  }
-
-  // If still no definition, create a basic one from the term and source context
-  if (!bestDefinition || bestDefinition.length < 5) {
-    console.log('No good definition found, creating fallback');
-    // Look for any meaningful content mentioning the term
-    for (const snippet of validSnippets) {
-      if (snippet.snippet.toLowerCase().includes(term.toLowerCase())) {
-        const sentences = snippet.snippet.split(/[.!?]/);
-        const relevantSentence = sentences.find(s => s.toLowerCase().includes(term.toLowerCase()));
-        if (relevantSentence && relevantSentence.trim().length > 10) {
-          bestDefinition = relevantSentence.trim();
-          break;
-        }
-      }
-    }
-  }
-
-  // Extract examples from any snippet
-  if (!bestExample) {
-    for (const snippet of validSnippets) {
-      const examplePatterns = [
-        /"([^"]+)"/g, // Any quoted text
-        /example[:\s]+([^.!?]+)/i,
-        /for instance[:\s]+([^.!?]+)/i
-      ];
-      
-      for (const pattern of examplePatterns) {
-        const match = snippet.snippet.match(pattern);
-        if (match && match[1] && match[1].length > 5) {
-          bestExample = match[1].trim();
-          break;
-        }
-      }
-      if (bestExample) break;
-    }
-  }
-
-  // Set confidence based on source quality and definition quality
-  let confidence = 'Low';
-  if (bestDefinition && bestDefinition.length > 10 && validSnippets.length >= 2) {
-    confidence = 'High';
-  } else if (bestDefinition && bestDefinition.length > 5) {
-    confidence = 'Medium';
-  }
-
-  console.log('Final definition:', bestDefinition);
-  console.log('Final confidence:', confidence);
-
+  // Create comprehensive citations
+  const citations = validSnippets.map(snippet => ({
+    title: snippet.title || extractTitle(snippet.url) || 'Source',
+    url: snippet.url,
+    quote: snippet.snippet.substring(0, 200) + (snippet.snippet.length > 200 ? '...' : ''),
+    date: new Date().toISOString()
+  }));
+  
   return {
-    meaning: bestDefinition || `A popular slang term: ${term}`,
-    tone,
-    example: bestExample || `"${term}" is commonly used in casual conversation.`,
-    related,
-    warning: '',
-    citations: validSnippets.map(s => ({
-      title: s.title,
-      url: s.url,
-      quote: s.snippet,
-      date: s.date
-    })),
+    meaning: synthesizedDefinition,
+    tone: determinedTone,
+    example: bestExample,
+    related: extractRelatedTerms(allSources, term),
+    warning: generateWarning(synthesizedDefinition, determinedTone),
+    citations,
     confidence
   };
+}
+
+// Helper function to calculate confidence for individual definitions
+function calculateConfidence(definition: string, fullText: string, isUrbanDict: boolean): number {
+  let score = 0;
+  
+  // Source reliability
+  score += isUrbanDict ? 30 : 10;
+  
+  // Definition quality indicators
+  if (definition.length > 30) score += 20;
+  if (definition.includes('is') || definition.includes('means')) score += 15;
+  if (!definition.includes('...')) score += 10;
+  
+  // Context quality
+  if (fullText.length > 100) score += 10;
+  if (fullText.includes('example')) score += 10;
+  
+  return Math.min(score, 100);
+}
+
+// Synthesize the best definition from multiple sources
+function synthesizeDefinition(definitions: any[], term: string): string {
+  if (definitions.length === 0) {
+    return `Unable to determine meaning for "${term}"`;
+  }
+  
+  // Sort by priority and confidence
+  const sortedDefs = definitions.sort((a, b) => 
+    (b.priority * 50 + b.confidence) - (a.priority * 50 + a.confidence)
+  );
+  
+  // If we have a high-confidence Urban Dictionary definition, use it
+  const topDef = sortedDefs[0];
+  if (topDef.priority >= 3 && topDef.confidence > 70) {
+    return cleanDefinition(topDef.text);
+  }
+  
+  // Otherwise, try to combine multiple definitions for consensus
+  const commonPhrases = findCommonPhrases(sortedDefs.slice(0, 3));
+  if (commonPhrases.length > 0) {
+    return cleanDefinition(commonPhrases[0]);
+  }
+  
+  // Fallback to best available definition
+  return cleanDefinition(topDef.text);
+}
+
+// Find common phrases across definitions
+function findCommonPhrases(definitions: any[]): string[] {
+  if (definitions.length < 2) return [];
+  
+  const phrases = [];
+  const texts = definitions.map(d => d.text.toLowerCase());
+  
+  // Look for common multi-word phrases
+  for (let i = 0; i < texts.length; i++) {
+    const words = texts[i].split(/\s+/);
+    for (let j = 0; j < words.length - 1; j++) {
+      const phrase = words.slice(j, j + 3).join(' ');
+      if (phrase.length > 10) {
+        const occurrences = texts.filter(t => t.includes(phrase)).length;
+        if (occurrences > 1) {
+          phrases.push(definitions[i].text);
+          break;
+        }
+      }
+    }
+  }
+  
+  return phrases;
+}
+
+// Select the best example from available options
+function selectBestExample(examples: any[], term: string): string {
+  if (examples.length === 0) return '';
+  
+  // Sort by priority and relevance
+  const sorted = examples.sort((a, b) => {
+    const aScore = a.priority * 10 + (a.text.toLowerCase().includes(term.toLowerCase()) ? 5 : 0);
+    const bScore = b.priority * 10 + (b.text.toLowerCase().includes(term.toLowerCase()) ? 5 : 0);
+    return bScore - aScore;
+  });
+  
+  return cleanExample(sorted[0].text, term);
+}
+
+// Determine overall tone from multiple indicators
+function determineTone(toneIndicators: any[]): string {
+  if (toneIndicators.length === 0) return 'neutral';
+  
+  const toneScores = { positive: 0, negative: 0, neutral: 0 };
+  
+  toneIndicators.forEach(indicator => {
+    toneScores[indicator.tone] += indicator.strength;
+  });
+  
+  const maxScore = Math.max(...Object.values(toneScores));
+  return Object.keys(toneScores).find(tone => toneScores[tone] === maxScore) || 'neutral';
+}
+
+// Calculate overall confidence based on source consensus
+function calculateOverallConfidence(definitions: any[], totalSources: number): string {
+  if (definitions.length === 0) return 'Low';
+  
+  const avgConfidence = definitions.reduce((sum, def) => sum + def.confidence, 0) / definitions.length;
+  const consensusRatio = definitions.length / totalSources;
+  
+  if (avgConfidence > 70 && consensusRatio > 0.5) return 'High';
+  if (avgConfidence > 50 && consensusRatio > 0.3) return 'Medium';
+  return 'Low';
+}
+
+// Extract related terms from sources
+function extractRelatedTerms(sources: any[], term: string): string[] {
+  const related = new Set<string>();
+  
+  sources.forEach(source => {
+    const text = source.snippet.toLowerCase();
+    
+    // Look for "also known as", "similar to", etc.
+    const patterns = [
+      /(?:also known as|aka|similar to|related to)[\s:]+([^,.!?]+)/gi,
+      /(?:see also|related)[\s:]+([^,.!?]+)/gi
+    ];
+    
+    patterns.forEach(pattern => {
+      const matches = text.matchAll(pattern);
+      for (const match of matches) {
+        if (match[1]) {
+          const terms = match[1].split(/[,&]/).map(t => t.trim()).filter(t => t.length > 2 && t !== term.toLowerCase());
+          terms.forEach(t => related.add(t));
+        }
+      }
+    });
+  });
+  
+  return Array.from(related).slice(0, 5);
+}
+
+// Generate appropriate warnings
+function generateWarning(definition: string, tone: string): string {
+  const defLower = definition.toLowerCase();
+  
+  if (tone === 'negative' || defLower.includes('offensive') || defLower.includes('inappropriate')) {
+    return 'This term may contain offensive or inappropriate content.';
+  }
+  
+  if (defLower.includes('sexual') || defLower.includes('explicit')) {
+    return 'This term may contain adult or explicit content.';
+  }
+  
+  return '';
+}
+
+// Clean and format definition text
+function cleanDefinition(text: string): string {
+  return text
+    .replace(/^[^a-zA-Z]*/, '') // Remove leading non-letters
+    .replace(/\s+/g, ' ') // Normalize whitespace
+    .trim()
+    .replace(/\.$/, '') // Remove trailing period
+    .substring(0, 200); // Limit length
+}
+
+// Clean and format example text
+function cleanExample(text: string, term: string): string {
+  let cleaned = text
+    .replace(/[""]/g, '"') // Normalize quotes
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  // If example doesn't contain the term, create one
+  if (!cleaned.toLowerCase().includes(term.toLowerCase())) {
+    cleaned = `"${term}!"`;
+  }
+  
+  return cleaned.substring(0, 100);
+}
+
+// Extract title from URL
+function extractTitle(url: string): string {
+  if (!url) return 'Unknown Source';
+  
+  if (url.includes('urbandictionary.com')) return 'Urban Dictionary';
+  if (url.includes('reddit.com')) return 'Reddit';
+  if (url.includes('tiktok.com')) return 'TikTok';
+  
+  try {
+    const domain = new URL(url).hostname.replace('www.', '');
+    return domain.split('.')[0].charAt(0).toUpperCase() + domain.split('.')[0].slice(1);
+  } catch {
+    return 'Web Source';
+  }
 }
 
 async function moderateDefinition(definition: any) {
