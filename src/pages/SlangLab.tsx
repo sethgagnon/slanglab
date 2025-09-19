@@ -68,7 +68,7 @@ const SlangLab = () => {
     fetchUserProfile();
   }, [user]);
 
-  const isLabPro = userProfile?.plan === 'pro' || userProfile?.plan === 'premium';
+  const isLabPro = userProfile?.plan === 'pro' || userProfile?.plan === 'premium' || userProfile?.role === 'admin';
 
   const handleGenerate = async () => {
     if (!selectedVibe) {
