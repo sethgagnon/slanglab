@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Search, Sparkles, Shield, TrendingUp } from 'lucide-react';
 import { useTrendingTerms } from '@/hooks/useTrendingTerms';
 const DEMO_TERMS = [{
@@ -48,13 +49,34 @@ const DEMO_TERMS = [{
 }];
 const Landing = () => {
   const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState('');
   const {
     trendingTerms,
     lastUpdated
   } = useTrendingTerms();
+  
   const handleTermClick = (term: string) => {
     navigate(`/lookup?q=${encodeURIComponent(term)}`);
   };
+  
+  const handleChipClick = (term: string) => {
+    setSearchTerm(term);
+  };
+  
+  const handleSearch = () => {
+    if (searchTerm.trim()) {
+      navigate(`/lookup?q=${encodeURIComponent(searchTerm.trim())}`);
+    }
+  };
+  
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+  
+  const exampleTerms = ['mid', 'rizz', 'sus', 'bet'];
+  
   return <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border px-4 py-4">
@@ -81,6 +103,43 @@ const Landing = () => {
             Decode Slang. Create Slang. Track the Trend.
           </h1>
           <p className="mb-8 text-xl text-muted-foreground">Type a word like rizz, mid, or sus. Get the meaning fast. Make your own slang and see if it spreads.</p>
+          
+          {/* Search Bar */}
+          <div className="mb-8 w-full max-w-2xl mx-auto">
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder="Search for slang terms..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={handleKeyPress}
+                className="w-full h-12 pl-4 pr-12 text-lg"
+              />
+              <Button
+                onClick={handleSearch}
+                size="icon"
+                className="absolute right-1 top-1 h-10 w-10"
+              >
+                <Search className="h-5 w-5" />
+              </Button>
+            </div>
+            
+            {/* Example Chips */}
+            <div className="flex flex-wrap gap-2 mt-4 justify-center">
+              <span className="text-sm text-muted-foreground mr-2">Try:</span>
+              {exampleTerms.map((term) => (
+                <Badge
+                  key={term}
+                  variant="secondary"
+                  className="cursor-pointer hover:bg-secondary/80 transition-colors"
+                  onClick={() => handleChipClick(term)}
+                >
+                  {term}
+                </Badge>
+              ))}
+            </div>
+          </div>
+          
           <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
             <Button asChild size="lg" className="text-lg">
               <Link to="/lookup">
