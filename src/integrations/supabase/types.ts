@@ -59,6 +59,48 @@ export type Database = {
         }
         Relationships: []
       }
+      content_reports: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          description: string | null
+          id: string
+          reason: string
+          reported_content_id: string
+          reported_content_type: string
+          reporter_user_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          reason: string
+          reported_content_id: string
+          reported_content_type: string
+          reporter_user_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          reason?: string
+          reported_content_id?: string
+          reported_content_type?: string
+          reporter_user_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       creation_monitoring: {
         Row: {
           created_at: string
@@ -122,6 +164,10 @@ export type Database = {
           example: string
           id: string
           meaning: string
+          moderated_at: string | null
+          moderated_by: string | null
+          moderation_reason: string | null
+          moderation_status: string | null
           phrase: string
           safe_flag: boolean
           user_id: string
@@ -133,6 +179,10 @@ export type Database = {
           example: string
           id?: string
           meaning: string
+          moderated_at?: string | null
+          moderated_by?: string | null
+          moderation_reason?: string | null
+          moderation_status?: string | null
           phrase: string
           safe_flag?: boolean
           user_id: string
@@ -144,6 +194,10 @@ export type Database = {
           example?: string
           id?: string
           meaning?: string
+          moderated_at?: string | null
+          moderated_by?: string | null
+          moderation_reason?: string | null
+          moderation_status?: string | null
           phrase?: string
           safe_flag?: boolean
           user_id?: string
@@ -247,39 +301,51 @@ export type Database = {
       }
       profiles: {
         Row: {
+          age_verified: boolean | null
+          birth_date: string | null
           created_at: string
           current_period_end: string | null
           email: string | null
           id: string
           name: string | null
+          parent_email: string | null
           plan: string | null
           role: string | null
+          safe_mode: boolean | null
           stripe_customer_id: string | null
           subscription_id: string | null
           subscription_status: string | null
           user_id: string
         }
         Insert: {
+          age_verified?: boolean | null
+          birth_date?: string | null
           created_at?: string
           current_period_end?: string | null
           email?: string | null
           id?: string
           name?: string | null
+          parent_email?: string | null
           plan?: string | null
           role?: string | null
+          safe_mode?: boolean | null
           stripe_customer_id?: string | null
           subscription_id?: string | null
           subscription_status?: string | null
           user_id: string
         }
         Update: {
+          age_verified?: boolean | null
+          birth_date?: string | null
           created_at?: string
           current_period_end?: string | null
           email?: string | null
           id?: string
           name?: string | null
+          parent_email?: string | null
           plan?: string | null
           role?: string | null
+          safe_mode?: boolean | null
           stripe_customer_id?: string | null
           subscription_id?: string | null
           subscription_status?: string | null
@@ -529,6 +595,42 @@ export type Database = {
         }
         Relationships: []
       }
+      user_strikes: {
+        Row: {
+          admin_id: string
+          created_at: string
+          description: string
+          expires_at: string | null
+          id: string
+          related_content_id: string | null
+          severity: string
+          strike_type: string
+          user_id: string
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string
+          description: string
+          expires_at?: string | null
+          id?: string
+          related_content_id?: string | null
+          severity?: string
+          strike_type: string
+          user_id: string
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string
+          description?: string
+          expires_at?: string | null
+          id?: string
+          related_content_id?: string | null
+          severity?: string
+          strike_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       votes: {
         Row: {
           created_at: string
@@ -576,6 +678,10 @@ export type Database = {
       }
       is_profile_owner: {
         Args: { profile_user_id: string }
+        Returns: boolean
+      }
+      user_can_create_content: {
+        Args: { user_uuid: string }
         Returns: boolean
       }
     }
