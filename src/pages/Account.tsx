@@ -262,7 +262,6 @@ const Account = () => {
                     </div>
                     <Button 
                       className="w-full" 
-                      variant="outline"
                       onClick={() => handleUpgrade('price_1S8uztDt8zpU0lE0z8emJyw3')}
                     >
                       Upgrade to LabPro
