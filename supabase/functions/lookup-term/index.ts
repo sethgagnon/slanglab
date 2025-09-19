@@ -149,8 +149,9 @@ async function fetchAndProcessDefinition(term: string, normalizedTerm: string, s
 }
 
 async function fetchSnippets(term: string) {
-  const searchApiKey = Deno.env.get('SEARCH_API_KEY');
-  if (!searchApiKey) {
+  // Try SerpAPI first, then fallback to SEARCH_API_KEY for backward compatibility
+  const serpApiKey = Deno.env.get('SERPAPI_API_KEY') || Deno.env.get('SEARCH_API_KEY');
+  if (!serpApiKey) {
     console.log('No search API key, returning mock data');
     return [{
       title: 'Urban Dictionary',
@@ -162,33 +163,33 @@ async function fetchSnippets(term: string) {
   }
 
   try {
-    // Using Bing Web Search API
+    // Using SerpAPI
     const query = `${term} slang meaning definition`;
-    const response = await fetch(`https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=5`, {
-      headers: {
-        'Ocp-Apim-Subscription-Key': searchApiKey,
-      },
-    });
+    const searchUrl = `https://serpapi.com/search?q=${encodeURIComponent(query)}&api_key=${serpApiKey}&num=5&engine=google`;
+    
+    console.log('Calling SerpAPI with URL:', searchUrl.replace(serpApiKey, '[HIDDEN]'));
+    
+    const response = await fetch(searchUrl);
 
     if (!response.ok) {
-      throw new Error(`Search API error: ${response.status}`);
+      throw new Error(`SerpAPI error: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('Search API response:', data);
+    console.log('SerpAPI response received, organic results count:', data.organic_results?.length || 0);
 
-    // Process search results
-    const snippets = data.webPages?.value?.slice(0, 5).map((result: any) => ({
-      title: result.name,
-      url: result.url,
+    // Process SerpAPI search results
+    const snippets = data.organic_results?.slice(0, 5).map((result: any) => ({
+      title: result.title,
+      url: result.link,
       snippet: result.snippet,
-      date: result.datePublished || new Date().toISOString(),
-      publisher: new URL(result.url).hostname
+      date: result.date || new Date().toISOString(),
+      publisher: result.displayed_link ? new URL(result.link).hostname : 'Unknown'
     })) || [];
 
     return snippets;
   } catch (error) {
-    console.error('Search API error:', error);
+    console.error('SerpAPI error:', error);
     // Return mock data as fallback
     return [{
       title: 'Dictionary Source',
