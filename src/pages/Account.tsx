@@ -13,15 +13,98 @@ import {
   Download,
   Eye,
   EyeOff,
-  Zap
+  Zap,
+  CreditCard,
+  Settings
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUsageStats } from '@/hooks/useUsageStats';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 const Account = () => {
   const [showApiKey, setShowApiKey] = useState(false);
   const { user, signOut } = useAuth();
   const usageStats = useUsageStats();
+  const [subscriptionData, setSubscriptionData] = useState<{
+    subscribed: boolean;
+    plan: string;
+    subscription_end: string | null;
+  } | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Check subscription status on mount
+  useEffect(() => {
+    if (user) {
+      checkSubscriptionStatus();
+    }
+  }, [user]);
+
+  const checkSubscriptionStatus = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase.functions.invoke('check-subscription');
+      
+      if (error) throw error;
+      
+      setSubscriptionData(data);
+    } catch (error) {
+      console.error('Error checking subscription:', error);
+      toast({
+        title: "Error",
+        description: "Failed to check subscription status",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpgrade = async (priceId: string) => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        body: { priceId }
+      });
+      
+      if (error) throw error;
+      
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (error) {
+      console.error('Error creating checkout:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start checkout process",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase.functions.invoke('customer-portal');
+      
+      if (error) throw error;
+      
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (error) {
+      console.error('Error opening customer portal:', error);
+      toast({
+        title: "Error",
+        description: "Failed to open subscription management",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (!user) {
     return (
@@ -40,6 +123,8 @@ const Account = () => {
       </div>
     );
   }
+
+  const currentPlan = subscriptionData?.plan || usageStats.plan;
 
   const getPlanBadge = (plan: string) => {
     switch (plan) {
@@ -148,29 +233,59 @@ const Account = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Current Plan</CardTitle>
-                  <CardDescription>Your subscription details</CardDescription>
+                  <CardDescription>
+                    Your subscription details
+                    {subscriptionData?.subscription_end && (
+                      <div className="mt-1 text-xs">
+                        {subscriptionData.subscribed ? 'Renews' : 'Expires'} on{' '}
+                        {new Date(subscriptionData.subscription_end).toLocaleDateString()}
+                      </div>
+                    )}
+                  </CardDescription>
                 </div>
-                {getPlanBadge(usageStats.plan)}
+                {getPlanBadge(currentPlan)}
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <h4 className="font-medium">Features included:</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  {getPlanFeatures(usageStats.plan).map((feature, index) => (
+                  {getPlanFeatures(currentPlan).map((feature, index) => (
                     <li key={index}>• {feature}</li>
                   ))}
                 </ul>
               </div>
-              {usageStats.plan === 'Free' && (
+              
+              {subscriptionData?.subscribed ? (
                 <div className="space-y-2">
-                  <Button className="w-full">
-                    <Zap className="w-4 h-4 mr-2" />
-                    Upgrade to SearchPro
+                  <Button 
+                    onClick={handleManageSubscription}
+                    disabled={isLoading}
+                    className="w-full"
+                    variant="outline"
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    Manage Subscription
                   </Button>
-                  <Button className="w-full" variant="outline">
-                    <Crown className="w-4 h-4 mr-2" />
-                    Upgrade to LabPro
+                </div>
+              ) : currentPlan === 'Free' && (
+                <div className="space-y-2">
+                  <Button 
+                    className="w-full"
+                    onClick={() => handleUpgrade('price_1S8uzhDt8zpU0lE0erSCXXc1')}
+                    disabled={isLoading}
+                  >
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Upgrade to SearchPro - $3/mo
+                  </Button>
+                  <Button 
+                    className="w-full" 
+                    variant="outline"
+                    onClick={() => handleUpgrade('price_1S8uztDt8zpU0lE0z8emJyw3')}
+                    disabled={isLoading}
+                  >
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Upgrade to LabPro - $5/mo
                   </Button>
                 </div>
               )}
@@ -281,7 +396,7 @@ const Account = () => {
           )}
 
           {/* Plan Upgrade */}
-          {usageStats.plan === 'Free' && (
+          {!subscriptionData?.subscribed && currentPlan === 'Free' && (
             <Card className="md:col-span-2">
               <CardHeader>
                 <CardTitle>Upgrade Your Experience</CardTitle>
@@ -305,7 +420,14 @@ const Account = () => {
                         <li>• No slang creation</li>
                       </ul>
                     </div>
-                    <Button className="w-full">Upgrade to SearchPro</Button>
+                    <Button 
+                      className="w-full"
+                      onClick={() => handleUpgrade('price_1S8uzhDt8zpU0lE0erSCXXc1')}
+                      disabled={isLoading}
+                    >
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      Upgrade to SearchPro
+                    </Button>
                   </div>
 
                   <div className="border rounded-lg p-4">
@@ -324,7 +446,15 @@ const Account = () => {
                         <li>• Advanced features</li>
                       </ul>
                     </div>
-                    <Button className="w-full" variant="outline">Upgrade to LabPro</Button>
+                    <Button 
+                      className="w-full" 
+                      variant="outline"
+                      onClick={() => handleUpgrade('price_1S8uztDt8zpU0lE0z8emJyw3')}
+                      disabled={isLoading}
+                    >
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      Upgrade to LabPro
+                    </Button>
                   </div>
                 </div>
               </CardContent>

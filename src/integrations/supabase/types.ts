@@ -183,29 +183,41 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          current_period_end: string | null
           email: string | null
           id: string
           name: string | null
           plan: string | null
           role: string | null
+          stripe_customer_id: string | null
+          subscription_id: string | null
+          subscription_status: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
+          current_period_end?: string | null
           email?: string | null
           id?: string
           name?: string | null
           plan?: string | null
           role?: string | null
+          stripe_customer_id?: string | null
+          subscription_id?: string | null
+          subscription_status?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
+          current_period_end?: string | null
           email?: string | null
           id?: string
           name?: string | null
           plan?: string | null
           role?: string | null
+          stripe_customer_id?: string | null
+          subscription_id?: string | null
+          subscription_status?: string | null
           user_id?: string
         }
         Relationships: []
