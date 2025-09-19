@@ -298,7 +298,8 @@ async function fetchSnippets(term: string) {
 }
 
 async function extractDefinitionFromSources(term: string, snippets: any[]) {
-  console.log('Extracting definition directly from sources');
+  console.log('Extracting definition directly from sources for term:', term);
+  console.log('Available snippets:', snippets.length);
   
   if (!snippets.length) {
     return {
@@ -314,6 +315,7 @@ async function extractDefinitionFromSources(term: string, snippets: any[]) {
 
   // Filter out system error snippets
   const validSnippets = snippets.filter(s => !s.title.includes('Error') && !s.snippet.includes('search API error'));
+  console.log('Valid snippets after filtering:', validSnippets.length);
   
   if (!validSnippets.length) {
     return {
@@ -327,107 +329,139 @@ async function extractDefinitionFromSources(term: string, snippets: any[]) {
     };
   }
 
-  // Extract the best definition from snippets
+  // Log snippet content for debugging
+  validSnippets.forEach((snippet, i) => {
+    console.log(`Snippet ${i + 1} from ${snippet.url}:`, snippet.snippet.substring(0, 200));
+  });
+
   let bestDefinition = '';
   let bestExample = '';
   let tone = 'neutral';
   const related: string[] = [];
   
-  // Look for Urban Dictionary style definitions first (usually most direct)
+  // Look for Urban Dictionary style definitions first
   const urbanSnippet = validSnippets.find(s => s.url.includes('urbandictionary.com'));
+  
   if (urbanSnippet) {
-    const snippet = urbanSnippet.snippet.toLowerCase();
+    console.log('Found Urban Dictionary snippet');
+    // Urban Dictionary typically has definitions in a structured format
+    // Look for the actual definition text more directly
+    let snippet = urbanSnippet.snippet;
     
-    // Extract definition - look for patterns like "term means" or "term is"
-    const definitionPatterns = [
-      new RegExp(`${term.toLowerCase()}\\s+(?:means?|is|refers? to)\\s+([^.!?]+)`, 'i'),
-      new RegExp(`([^.!?]*${term.toLowerCase()}[^.!?]*)`, 'i')
-    ];
+    // Remove common prefixes from Urban Dictionary
+    snippet = snippet.replace(/^.*?\s+definition\s*:?\s*/i, '');
+    snippet = snippet.replace(/^.*?\s+meaning\s*:?\s*/i, '');
     
-    for (const pattern of definitionPatterns) {
-      const match = urbanSnippet.snippet.match(pattern);
-      if (match && match[1]) {
-        bestDefinition = match[1].trim();
-        break;
-      }
+    // Take the first sentence or up to first period/exclamation/question mark
+    const sentences = snippet.split(/[.!?]/);
+    if (sentences.length > 0 && sentences[0].trim()) {
+      bestDefinition = sentences[0].trim();
     }
     
-    // If no pattern match, use first sentence
-    if (!bestDefinition) {
-      bestDefinition = urbanSnippet.snippet.split('.')[0];
-    }
-    
-    // Extract tone indicators
-    if (snippet.includes('positive') || snippet.includes('good') || snippet.includes('cool')) {
+    // Look for tone indicators
+    const lowerSnippet = snippet.toLowerCase();
+    if (lowerSnippet.includes('charisma') || lowerSnippet.includes('charm') || lowerSnippet.includes('attractive') || lowerSnippet.includes('cool')) {
       tone = 'positive';
-    } else if (snippet.includes('insult') || snippet.includes('negative') || snippet.includes('bad')) {
+    } else if (lowerSnippet.includes('negative') || lowerSnippet.includes('bad') || lowerSnippet.includes('insult')) {
       tone = 'insulting';
     }
-  } else {
-    // Use the first valid snippet
-    bestDefinition = validSnippets[0].snippet.split('.')[0];
+    
+    // Look for examples in quotes
+    const exampleMatch = snippet.match(/"([^"]+)"/);
+    if (exampleMatch) {
+      bestExample = exampleMatch[1];
+    }
+  }
+  
+  // If no Urban Dictionary or definition not found, try other sources
+  if (!bestDefinition) {
+    console.log('No Urban Dictionary definition found, trying other sources');
+    for (const snippet of validSnippets) {
+      let text = snippet.snippet;
+      
+      // Try to find definition patterns in any snippet
+      const patterns = [
+        new RegExp(`${term}\\s+(?:is|means|refers to)\\s+([^.!?]+)`, 'i'),
+        new RegExp(`([^.!?]*${term}[^.!?]*?)(?:[.!?]|$)`, 'i'),
+        /^([^.!?]+)/ // First sentence as fallback
+      ];
+      
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match && match[1] && match[1].trim().length > 10) {
+          bestDefinition = match[1].trim();
+          console.log('Found definition using pattern:', pattern.source);
+          break;
+        }
+      }
+      
+      if (bestDefinition) break;
+    }
   }
 
   // Clean up definition
-  bestDefinition = bestDefinition
-    .replace(/^[^a-zA-Z]*/, '') // Remove leading non-letters
-    .replace(/\s+/g, ' ') // Normalize whitespace
-    .trim();
-    
-  // Limit to 24 words as per original schema
-  const words = bestDefinition.split(' ');
-  if (words.length > 24) {
-    bestDefinition = words.slice(0, 24).join(' ') + '...';
-  }
-
-  // Extract example if available
-  for (const snippet of validSnippets) {
-    const examplePatterns = [
-      /"([^"]*"[^"]*)/g, // Quoted examples
-      /example[:\s]+([^.!?]+)/i,
-      /like[:\s]+"([^"]+)"/i
-    ];
-    
-    for (const pattern of examplePatterns) {
-      const match = snippet.snippet.match(pattern);
-      if (match && match[1] && match[1].toLowerCase().includes(term.toLowerCase())) {
-        bestExample = match[1].trim();
-        break;
-      }
+  if (bestDefinition) {
+    bestDefinition = bestDefinition
+      .replace(/^[^a-zA-Z]*/, '') // Remove leading non-letters
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim();
+      
+    // Limit to reasonable length
+    const words = bestDefinition.split(' ');
+    if (words.length > 24) {
+      bestDefinition = words.slice(0, 24).join(' ') + '...';
     }
-    if (bestExample) break;
   }
 
-  // Extract related terms
-  for (const snippet of validSnippets) {
-    const text = snippet.snippet.toLowerCase();
-    const relatedPatterns = [
-      /similar to ([^,.!?]+)/i,
-      /also (?:called|known as) ([^,.!?]+)/i,
-      /like ([^,.!?]+)/i
-    ];
-    
-    for (const pattern of relatedPatterns) {
-      const match = text.match(pattern);
-      if (match && match[1] && related.length < 4) {
-        const relatedTerm = match[1].trim();
-        if (relatedTerm !== term.toLowerCase() && !related.includes(relatedTerm)) {
-          related.push(relatedTerm);
+  // If still no definition, create a basic one from the term and source context
+  if (!bestDefinition || bestDefinition.length < 5) {
+    console.log('No good definition found, creating fallback');
+    // Look for any meaningful content mentioning the term
+    for (const snippet of validSnippets) {
+      if (snippet.snippet.toLowerCase().includes(term.toLowerCase())) {
+        const sentences = snippet.snippet.split(/[.!?]/);
+        const relevantSentence = sentences.find(s => s.toLowerCase().includes(term.toLowerCase()));
+        if (relevantSentence && relevantSentence.trim().length > 10) {
+          bestDefinition = relevantSentence.trim();
+          break;
         }
       }
     }
   }
 
-  // Set confidence based on source quality
+  // Extract examples from any snippet
+  if (!bestExample) {
+    for (const snippet of validSnippets) {
+      const examplePatterns = [
+        /"([^"]+)"/g, // Any quoted text
+        /example[:\s]+([^.!?]+)/i,
+        /for instance[:\s]+([^.!?]+)/i
+      ];
+      
+      for (const pattern of examplePatterns) {
+        const match = snippet.snippet.match(pattern);
+        if (match && match[1] && match[1].length > 5) {
+          bestExample = match[1].trim();
+          break;
+        }
+      }
+      if (bestExample) break;
+    }
+  }
+
+  // Set confidence based on source quality and definition quality
   let confidence = 'Low';
-  if (validSnippets.length >= 3) {
+  if (bestDefinition && bestDefinition.length > 10 && validSnippets.length >= 2) {
     confidence = 'High';
-  } else if (validSnippets.length >= 2 || urbanSnippet) {
+  } else if (bestDefinition && bestDefinition.length > 5) {
     confidence = 'Medium';
   }
 
+  console.log('Final definition:', bestDefinition);
+  console.log('Final confidence:', confidence);
+
   return {
-    meaning: bestDefinition || `A slang term: ${term}`,
+    meaning: bestDefinition || `A popular slang term: ${term}`,
     tone,
     example: bestExample || `"${term}" is commonly used in casual conversation.`,
     related,
