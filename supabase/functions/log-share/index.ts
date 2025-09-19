@@ -76,6 +76,35 @@ serve(async (req) => {
       );
     }
 
+    // Activate monitoring for this creation (if not already active)
+    const { error: monitoringError } = await supabase
+      .from('creation_monitoring')
+      .upsert({
+        creation_id,
+        user_id,
+        monitoring_started_at: new Date().toISOString(),
+      }, {
+        onConflict: 'creation_id',
+        ignoreDuplicates: true
+      });
+
+    if (monitoringError) {
+      console.log('Monitoring activation failed (non-critical):', monitoringError);
+    } else {
+      console.log('Monitoring activated for creation:', creation_id);
+    }
+
+    if (error) {
+      console.error('Database error:', error);
+      return new Response(
+        JSON.stringify({ error: 'Failed to log share' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     console.log('Share logged successfully:', data);
 
     return new Response(

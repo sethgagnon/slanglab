@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Sparkles, 
   Star, 
@@ -13,12 +14,14 @@ import {
   User,
   LogOut,
   Loader2,
-  CheckCircle
+  CheckCircle,
+  TrendingUp
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SharePanel } from '@/components/SharePanel';
+import { SlangMonitoringDashboard } from '@/components/SlangMonitoringDashboard';
 
 interface Creation {
   id: string;
@@ -244,194 +247,213 @@ const SlangLab = () => {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2">Slang Creator Lab</h1>
           <p className="text-muted-foreground">
-            Generate fun, safe new phrases and explore creative language
+            Generate fun, safe new phrases and track them in the wild
           </p>
         </div>
 
-        {/* Generator Controls */}
-        <Card className="mx-auto max-w-2xl mb-8">
-          <CardHeader>
-            <CardTitle>Create New Slang</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Choose a Vibe</label>
-              <Select value={selectedVibe} onValueChange={setSelectedVibe}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select the mood you want to create..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {VIBES.map((vibe) => (
-                    <SelectItem key={vibe.value} value={vibe.value}>
-                      {vibe.label}
-                    </SelectItem>
+        <Tabs defaultValue="create" className="space-y-8">
+          <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
+            <TabsTrigger value="create" className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4" />
+              Create Slang
+            </TabsTrigger>
+            <TabsTrigger value="tracking" className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Slang Tracker
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="create" className="space-y-8">
+            {/* Generator Controls */}
+            <Card className="mx-auto max-w-2xl">
+              <CardHeader>
+                <CardTitle>Create New Slang</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Choose a Vibe</label>
+                  <Select value={selectedVibe} onValueChange={setSelectedVibe}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select the mood you want to create..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {VIBES.map((vibe) => (
+                        <SelectItem key={vibe.value} value={vibe.value}>
+                          {vibe.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button 
+                  onClick={handleGenerate} 
+                  disabled={loading || !selectedVibe}
+                  className="w-full"
+                  size="lg"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating Creative Slang...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Generate 5 Phrases
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Generated Creations */}
+            {creations.length > 0 && (
+              <div className="space-y-4">
+                {/* Generation Status */}
+                {generationStatus && (
+                  <Card className="mx-auto max-w-2xl">
+                    <CardContent className="p-4">
+                      <div className="flex items-center space-x-2">
+                        {generationStatus.isFromAI ? (
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                        ) : (
+                          <Badge variant="outline" className="bg-yellow-50">
+                            Fallback
+                          </Badge>
+                        )}
+                        <p className="text-sm font-medium">{generationStatus.message}</p>
+                        {generationStatus.canRetry && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={handleGenerate}
+                            disabled={loading}
+                          >
+                            Try Again
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                
+                <h2 className="text-xl font-semibold text-center">
+                  {generationStatus?.isFromAI ? 'Fresh AI Creations' : 'Creative Slang Collection'}
+                </h2>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {creations.map((creation) => (
+                    <Card key={creation.id} className="relative">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <CardTitle className="text-lg">{creation.phrase}</CardTitle>
+                          <div className="flex gap-1">
+                            {creation.safe_flag && (
+                              <Badge variant="secondary" className="text-xs">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Safe
+                              </Badge>
+                            )}
+                            {generationStatus && !generationStatus.isFromAI && (
+                              <Badge variant="outline" className="text-xs bg-blue-50">
+                                Curated
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground mb-1">Meaning</p>
+                          <p className="text-sm">{creation.meaning}</p>
+                        </div>
+                        
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground mb-1">Example</p>
+                          <p className="text-sm italic">"{creation.example}"</p>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="space-y-3 pt-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-1">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleVote(creation.id, 1)}
+                              >
+                                <ThumbsUp className="h-4 w-4" />
+                              </Button>
+                              <span className="text-sm text-muted-foreground px-1">
+                                {creation.votes}
+                              </span>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleVote(creation.id, -1)}
+                              >
+                                <ThumbsDown className="h-4 w-4" />
+                              </Button>
+                            </div>
+
+                            <div className="flex items-center space-x-1">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleSave(creation.id)}
+                              >
+                                <Star className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleCopy(creation.example)}
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Share Panel for LabPro users */}
+                          {isLabPro && user && (
+                            <div className="border-t border-border pt-3">
+                              <p className="text-xs text-muted-foreground mb-2">Share your creation:</p>
+                              <SharePanel 
+                                creation={{
+                                  id: creation.id,
+                                  phrase: creation.phrase,
+                                  meaning: creation.meaning,
+                                  example: creation.example,
+                                  vibe: selectedVibe
+                                }}
+                                userId={user.id}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button 
-              onClick={handleGenerate} 
-              disabled={loading || !selectedVibe}
-              className="w-full"
-              size="lg"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating Creative Slang...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Generate 5 Phrases
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Generated Creations */}
-        {creations.length > 0 && (
-          <div className="space-y-4">
-            {/* Generation Status */}
-            {generationStatus && (
-              <Card className="mx-auto max-w-2xl">
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-2">
-                    {generationStatus.isFromAI ? (
-                      <CheckCircle className="h-5 w-5 text-green-500" />
-                    ) : (
-                      <Badge variant="outline" className="bg-yellow-50">
-                        Fallback
-                      </Badge>
-                    )}
-                    <p className="text-sm font-medium">{generationStatus.message}</p>
-                    {generationStatus.canRetry && (
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={handleGenerate}
-                        disabled={loading}
-                      >
-                        Try Again
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
-            
-            <h2 className="text-xl font-semibold text-center">
-              {generationStatus?.isFromAI ? 'Fresh AI Creations' : 'Creative Slang Collection'}
-            </h2>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {creations.map((creation) => (
-                <Card key={creation.id} className="relative">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <CardTitle className="text-lg">{creation.phrase}</CardTitle>
-                      <div className="flex gap-1">
-                        {creation.safe_flag && (
-                          <Badge variant="secondary" className="text-xs">
-                            <CheckCircle className="w-3 h-3 mr-1" />
-                            Safe
-                          </Badge>
-                        )}
-                        {generationStatus && !generationStatus.isFromAI && (
-                          <Badge variant="outline" className="text-xs bg-blue-50">
-                            Curated
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground mb-1">Meaning</p>
-                      <p className="text-sm">{creation.meaning}</p>
-                    </div>
-                    
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground mb-1">Example</p>
-                      <p className="text-sm italic">"{creation.example}"</p>
-                    </div>
 
-                    {/* Action Buttons */}
-                    <div className="space-y-3 pt-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleVote(creation.id, 1)}
-                          >
-                            <ThumbsUp className="h-4 w-4" />
-                          </Button>
-                          <span className="text-sm text-muted-foreground px-1">
-                            {creation.votes}
-                          </span>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleVote(creation.id, -1)}
-                          >
-                            <ThumbsDown className="h-4 w-4" />
-                          </Button>
-                        </div>
+            {/* Safety Notice */}
+            <Card className="mx-auto max-w-2xl">
+              <CardContent className="p-6 text-center">
+                <CheckCircle className="mx-auto mb-4 h-8 w-8 text-primary" />
+                <h3 className="mb-2 text-lg font-semibold">Safe Content Promise</h3>
+                <p className="text-sm text-muted-foreground">
+                  All generated phrases are filtered for safety and appropriateness. 
+                  We never create offensive, harmful, or inappropriate content.
+                </p>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-                        <div className="flex items-center space-x-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleSave(creation.id)}
-                          >
-                            <Star className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleCopy(creation.example)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Share Panel for LabPro users */}
-                      {isLabPro && user && (
-                        <div className="border-t border-border pt-3">
-                          <p className="text-xs text-muted-foreground mb-2">Share your creation:</p>
-                          <SharePanel 
-                            creation={{
-                              id: creation.id,
-                              phrase: creation.phrase,
-                              meaning: creation.meaning,
-                              example: creation.example,
-                              vibe: selectedVibe
-                            }}
-                            userId={user.id}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Safety Notice */}
-        <Card className="mx-auto max-w-2xl mt-8">
-          <CardContent className="p-6 text-center">
-            <CheckCircle className="mx-auto mb-4 h-8 w-8 text-primary" />
-            <h3 className="mb-2 text-lg font-semibold">Safe Content Promise</h3>
-            <p className="text-sm text-muted-foreground">
-              All generated phrases are filtered for safety and appropriateness. 
-              We never create offensive, harmful, or inappropriate content.
-            </p>
-          </CardContent>
-        </Card>
+          <TabsContent value="tracking">
+            <SlangMonitoringDashboard />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

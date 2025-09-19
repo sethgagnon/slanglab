@@ -59,6 +59,62 @@ export type Database = {
         }
         Relationships: []
       }
+      creation_monitoring: {
+        Row: {
+          created_at: string
+          creation_id: string
+          id: string
+          last_checked_at: string | null
+          last_found_at: string | null
+          monitoring_started_at: string
+          platforms_detected: string[] | null
+          search_frequency: string
+          status: string
+          times_found: number
+          trending_score: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          creation_id: string
+          id?: string
+          last_checked_at?: string | null
+          last_found_at?: string | null
+          monitoring_started_at?: string
+          platforms_detected?: string[] | null
+          search_frequency?: string
+          status?: string
+          times_found?: number
+          trending_score?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          creation_id?: string
+          id?: string
+          last_checked_at?: string | null
+          last_found_at?: string | null
+          monitoring_started_at?: string
+          platforms_detected?: string[] | null
+          search_frequency?: string
+          status?: string
+          times_found?: number
+          trending_score?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creation_monitoring_creation_id_fkey"
+            columns: ["creation_id"]
+            isOneToOne: true
+            referencedRelation: "creations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       creations: {
         Row: {
           created_at: string
