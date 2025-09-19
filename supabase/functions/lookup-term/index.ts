@@ -213,9 +213,9 @@ async function fetchAndProcessDefinition(term: string, normalizedTerm: string, s
   const snippets = await fetchSnippets(term);
   console.log('Fetched snippets:', snippets.length);
 
-  // Step 2: Synthesize definition using OpenAI
-  const definition = await synthesizeDefinition(term, snippets);
-  console.log('Synthesized definition:', definition);
+  // Step 2: Extract definition directly from sources  
+  const definition = await extractDefinitionFromSources(term, snippets);
+  console.log('Extracted definition from sources:', definition);
 
   // Step 3: Moderate the definition
   const moderatedDefinition = await moderateDefinition(definition);
@@ -297,116 +297,149 @@ async function fetchSnippets(term: string) {
   }
 }
 
-async function synthesizeDefinition(term: string, snippets: any[]) {
-  const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-  if (!openaiApiKey) {
-    throw new Error('OpenAI API key not configured');
-  }
-
-  const prompt = `You write neutral, family-safe slang definitions with citations.
-Use ONLY the provided snippets. No speculation. If sources conflict, note both and set confidence to "Medium".
-Output ONLY valid JSON - no markdown, no explanations, no code blocks.
-
-JSON schema:
-{
-  "meaning": string (<= 24 words, plain English),
-  "tone": "positive"|"neutral"|"insulting"|"adult"|"niche",
-  "example": string (safe example sentence),
-  "related": string[] (0–4 items),
-  "warning": string (empty if none),
-  "citations": [{"title", "url", "quote", "date"}],
-  "confidence": "High"|"Medium"|"Low"
-}
-
-SNIPPETS: ${JSON.stringify(snippets)}
-TERM: ${term}`;
-
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: prompt
-          }
-        ],
-        max_tokens: 1000,
-        temperature: 0.2,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('OpenAI API error response:', errorText);
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json();
-    const content = data.choices[0].message.content;
-    console.log('Raw OpenAI response:', content);
-    
-    // Try to parse the content with multiple strategies
-    let parsedContent;
-    try {
-      // Strategy 1: Direct JSON parse
-      parsedContent = JSON.parse(content);
-    } catch (parseError) {
-      try {
-        // Strategy 2: Extract JSON from markdown code blocks
-        const jsonMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-        if (jsonMatch) {
-          console.log('Found JSON in markdown blocks, extracting...');
-          parsedContent = JSON.parse(jsonMatch[1]);
-        } else {
-          // Strategy 3: Look for JSON object pattern
-          const jsonObjectMatch = content.match(/\{[\s\S]*\}/);
-          if (jsonObjectMatch) {
-            console.log('Found JSON object pattern, extracting...');
-            parsedContent = JSON.parse(jsonObjectMatch[0]);
-          } else {
-            throw new Error('No valid JSON found in response');
-          }
-        }
-      } catch (secondParseError) {
-        console.error('All parsing strategies failed. Raw content:', content);
-        console.error('Parse errors:', parseError, secondParseError);
-        throw new Error('Unable to parse AI response as JSON');
-      }
-    }
-    
-    // Validate the parsed content has required fields
-    if (!parsedContent.meaning || !parsedContent.tone || !parsedContent.confidence) {
-      console.error('Parsed content missing required fields:', parsedContent);
-      throw new Error('AI response missing required fields');
-    }
-    
-    console.log('Successfully parsed OpenAI response:', parsedContent);
-    return parsedContent;
-    
-  } catch (error) {
-    console.error('OpenAI synthesis error:', error);
-    // Return fallback definition with better error context
+async function extractDefinitionFromSources(term: string, snippets: any[]) {
+  console.log('Extracting definition directly from sources');
+  
+  if (!snippets.length) {
     return {
-      meaning: snippets.length > 0 ? `Definition for "${term}" not yet available - please check back later` : 'Not enough reliable sources found yet.',
+      meaning: `No definition found for "${term}" in available sources.`,
       tone: 'neutral',
-      example: `Example usage of "${term}" coming soon.`,
+      example: '',
       related: [],
-      warning: 'Limited source data available',
-      citations: snippets.map(s => ({
-        title: s.title,
-        url: s.url,
-        quote: s.snippet,
-        date: s.date
-      })),
+      warning: '',
+      citations: [],
       confidence: 'Low'
     };
   }
+
+  // Filter out system error snippets
+  const validSnippets = snippets.filter(s => !s.title.includes('Error') && !s.snippet.includes('search API error'));
+  
+  if (!validSnippets.length) {
+    return {
+      meaning: `Definition temporarily unavailable for "${term}".`,
+      tone: 'neutral',
+      example: '',
+      related: [],
+      warning: 'Search results temporarily unavailable',
+      citations: [],
+      confidence: 'Low'
+    };
+  }
+
+  // Extract the best definition from snippets
+  let bestDefinition = '';
+  let bestExample = '';
+  let tone = 'neutral';
+  const related: string[] = [];
+  
+  // Look for Urban Dictionary style definitions first (usually most direct)
+  const urbanSnippet = validSnippets.find(s => s.url.includes('urbandictionary.com'));
+  if (urbanSnippet) {
+    const snippet = urbanSnippet.snippet.toLowerCase();
+    
+    // Extract definition - look for patterns like "term means" or "term is"
+    const definitionPatterns = [
+      new RegExp(`${term.toLowerCase()}\\s+(?:means?|is|refers? to)\\s+([^.!?]+)`, 'i'),
+      new RegExp(`([^.!?]*${term.toLowerCase()}[^.!?]*)`, 'i')
+    ];
+    
+    for (const pattern of definitionPatterns) {
+      const match = urbanSnippet.snippet.match(pattern);
+      if (match && match[1]) {
+        bestDefinition = match[1].trim();
+        break;
+      }
+    }
+    
+    // If no pattern match, use first sentence
+    if (!bestDefinition) {
+      bestDefinition = urbanSnippet.snippet.split('.')[0];
+    }
+    
+    // Extract tone indicators
+    if (snippet.includes('positive') || snippet.includes('good') || snippet.includes('cool')) {
+      tone = 'positive';
+    } else if (snippet.includes('insult') || snippet.includes('negative') || snippet.includes('bad')) {
+      tone = 'insulting';
+    }
+  } else {
+    // Use the first valid snippet
+    bestDefinition = validSnippets[0].snippet.split('.')[0];
+  }
+
+  // Clean up definition
+  bestDefinition = bestDefinition
+    .replace(/^[^a-zA-Z]*/, '') // Remove leading non-letters
+    .replace(/\s+/g, ' ') // Normalize whitespace
+    .trim();
+    
+  // Limit to 24 words as per original schema
+  const words = bestDefinition.split(' ');
+  if (words.length > 24) {
+    bestDefinition = words.slice(0, 24).join(' ') + '...';
+  }
+
+  // Extract example if available
+  for (const snippet of validSnippets) {
+    const examplePatterns = [
+      /"([^"]*"[^"]*)/g, // Quoted examples
+      /example[:\s]+([^.!?]+)/i,
+      /like[:\s]+"([^"]+)"/i
+    ];
+    
+    for (const pattern of examplePatterns) {
+      const match = snippet.snippet.match(pattern);
+      if (match && match[1] && match[1].toLowerCase().includes(term.toLowerCase())) {
+        bestExample = match[1].trim();
+        break;
+      }
+    }
+    if (bestExample) break;
+  }
+
+  // Extract related terms
+  for (const snippet of validSnippets) {
+    const text = snippet.snippet.toLowerCase();
+    const relatedPatterns = [
+      /similar to ([^,.!?]+)/i,
+      /also (?:called|known as) ([^,.!?]+)/i,
+      /like ([^,.!?]+)/i
+    ];
+    
+    for (const pattern of relatedPatterns) {
+      const match = text.match(pattern);
+      if (match && match[1] && related.length < 4) {
+        const relatedTerm = match[1].trim();
+        if (relatedTerm !== term.toLowerCase() && !related.includes(relatedTerm)) {
+          related.push(relatedTerm);
+        }
+      }
+    }
+  }
+
+  // Set confidence based on source quality
+  let confidence = 'Low';
+  if (validSnippets.length >= 3) {
+    confidence = 'High';
+  } else if (validSnippets.length >= 2 || urbanSnippet) {
+    confidence = 'Medium';
+  }
+
+  return {
+    meaning: bestDefinition || `A slang term: ${term}`,
+    tone,
+    example: bestExample || `"${term}" is commonly used in casual conversation.`,
+    related,
+    warning: '',
+    citations: validSnippets.map(s => ({
+      title: s.title,
+      url: s.url,
+      quote: s.snippet,
+      date: s.date
+    })),
+    confidence
+  };
 }
 
 async function moderateDefinition(definition: any) {
