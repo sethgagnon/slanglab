@@ -152,13 +152,13 @@ async function fetchSnippets(term: string) {
   // Try SerpAPI first, then fallback to SEARCH_API_KEY for backward compatibility
   const serpApiKey = Deno.env.get('SERPAPI_API_KEY') || Deno.env.get('SEARCH_API_KEY');
   if (!serpApiKey) {
-    console.log('No search API key, returning mock data');
+    console.error('No SerpAPI key found. Please add SERPAPI_API_KEY secret.');
     return [{
-      title: 'Urban Dictionary',
-      url: 'https://urbandictionary.com',
-      snippet: `Definition for "${term}" from a trusted source`,
+      title: 'No Search Results Available',
+      url: 'https://example.com',
+      snippet: `Unable to fetch real definitions for "${term}" - API key missing`,
       date: new Date().toISOString(),
-      publisher: 'Urban Dictionary'
+      publisher: 'System'
     }];
   }
 
@@ -189,14 +189,20 @@ async function fetchSnippets(term: string) {
 
     return snippets;
   } catch (error) {
-    console.error('SerpAPI error:', error);
-    // Return mock data as fallback
+    console.error('SerpAPI error details:', {
+      message: error.message,
+      status: error.status,
+      term: term,
+      hasApiKey: !!serpApiKey
+    });
+    
+    // Return informative error data instead of generic mock
     return [{
-      title: 'Dictionary Source',
+      title: 'Search Error',
       url: 'https://example.com',
-      snippet: `Common usage and meaning of "${term}"`,
+      snippet: `Unable to fetch real-time definition for "${term}" due to search API error: ${error.message}`,
       date: new Date().toISOString(),
-      publisher: 'Dictionary'
+      publisher: 'System Error'
     }];
   }
 }
