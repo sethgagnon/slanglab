@@ -263,6 +263,42 @@ export type Database = {
           },
         ]
       }
+      search_sources: {
+        Row: {
+          base_url: string
+          created_at: string
+          enabled: boolean
+          id: string
+          is_required: boolean
+          name: string
+          notes: string | null
+          quality_score: number
+          updated_at: string
+        }
+        Insert: {
+          base_url: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          is_required?: boolean
+          name: string
+          notes?: string | null
+          quality_score?: number
+          updated_at?: string
+        }
+        Update: {
+          base_url?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          is_required?: boolean
+          name?: string
+          notes?: string | null
+          quality_score?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       senses: {
         Row: {
           confidence: string
