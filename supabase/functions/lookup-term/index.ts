@@ -498,14 +498,20 @@ async function saveDefinitionToDatabase(supabase: any, term: string, normalizedT
 }
 
 async function checkUserUsageLimits(supabase: any, userId: string) {
-  // Get user profile to check plan
+  // Get user profile to check plan and role
   const { data: profile } = await supabase
     .from('profiles')
-    .select('plan')
+    .select('plan, role')
     .eq('user_id', userId)
     .single();
 
   const plan = profile?.plan || 'Free';
+  const role = profile?.role;
+  
+  // Admin users have unlimited searches
+  if (role === 'admin') {
+    return { success: true };
+  }
   
   // SearchPro and LabPro have unlimited searches
   if (plan === 'SearchPro' || plan === 'LabPro') {

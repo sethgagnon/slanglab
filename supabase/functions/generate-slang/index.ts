@@ -51,14 +51,17 @@ serve(async (req) => {
         // Check usage limits - weekly for free users
         const { data: profile } = await supabase
           .from('profiles')
-          .select('plan')
+          .select('plan, role')
           .eq('user_id', userId)
           .single();
 
         const plan = profile?.plan || 'free';
+        const role = profile?.role;
         
-        // For free users, check weekly limits
-        if (plan === 'free') {
+        // Admin users have unlimited generations
+        if (role === 'admin') {
+          // Skip all limits for admin users
+        } else if (plan === 'free') {
           // Get the start of current week (Monday)
           const { data: weekStartData } = await supabase
             .rpc('get_week_start')

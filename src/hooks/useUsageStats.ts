@@ -9,6 +9,7 @@ interface UsageStats {
   creationsLimit: number;
   plan: string;
   loading: boolean;
+  isAdmin?: boolean;
 }
 
 export const useUsageStats = () => {
@@ -39,13 +40,16 @@ export const useUsageStats = () => {
       }
 
       try {
-        // Get user profile for plan info
+        // Get user profile for plan and role info
         const { data: profile } = await supabase
           .from('profiles')
-          .select('plan')
+          .select('plan, role')
           .eq('user_id', user.id)
           .single();
 
+        // Check if user is admin
+        const isAdmin = profile?.role === 'admin';
+        
         // Normalize plan name to proper case for frontend consistency
         const rawPlan = profile?.plan || 'free';
         const userPlan = rawPlan === 'free' ? 'Free' : 
@@ -78,11 +82,15 @@ export const useUsageStats = () => {
           .eq('week_start_date', weekStart)
           .maybeSingle();
 
-        // Set limits based on plan
+        // Set limits based on role and plan
         let searchesLimit = 3; // Free plan default
         let creationsLimit = 1; // Free plan gets 1 per week
 
-        if (userPlan === 'SearchPro') {
+        // Admin users get unlimited everything
+        if (isAdmin) {
+          searchesLimit = -1; // Unlimited
+          creationsLimit = -1; // Unlimited
+        } else if (userPlan === 'SearchPro') {
           searchesLimit = -1; // Unlimited
           creationsLimit = 1; // Still 1 per week for SearchPro
         } else if (userPlan === 'LabPro') {
@@ -95,8 +103,9 @@ export const useUsageStats = () => {
           searchesLimit,
           creationsUsed: weeklyLimits?.generations_used || 0,
           creationsLimit,
-          plan: userPlan,
-          loading: false
+          plan: isAdmin ? 'Admin' : userPlan,
+          loading: false,
+          isAdmin
         });
       } catch (error) {
         console.error('Error fetching usage stats:', error);

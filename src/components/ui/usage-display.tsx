@@ -10,6 +10,7 @@ interface UsageDisplayProps {
   creationsLimit?: number;
   plan: string;
   className?: string;
+  isAdmin?: boolean;
 }
 
 export const UsageDisplay: React.FC<UsageDisplayProps> = ({
@@ -18,7 +19,8 @@ export const UsageDisplay: React.FC<UsageDisplayProps> = ({
   creationsUsed = 0,
   creationsLimit = 0,
   plan,
-  className = ""
+  className = "",
+  isAdmin = false
 }) => {
   const searchPercentage = searchesLimit === -1 ? 0 : (searchesUsed / searchesLimit) * 100;
   const creationPercentage = creationsLimit === -1 ? 0 : (creationsUsed / creationsLimit) * 100;
@@ -28,7 +30,7 @@ export const UsageDisplay: React.FC<UsageDisplayProps> = ({
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-medium">Usage Limits</h3>
-          <Badge variant="outline">{plan}</Badge>
+          <Badge variant={isAdmin ? "default" : "outline"}>{plan}</Badge>
         </div>
         
         <div className="space-y-3">

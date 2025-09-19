@@ -254,6 +254,7 @@ const Lookup = () => {
               creationsUsed={usageStats.creationsUsed}
               creationsLimit={usageStats.creationsLimit}
               plan={usageStats.plan}
+              isAdmin={usageStats.isAdmin}
             />
           </div>
         )}
