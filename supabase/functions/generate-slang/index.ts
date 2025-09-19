@@ -238,6 +238,7 @@ async function saveCreationsToDatabase(userId: string, vibe: string, creations: 
       safe_flag: creation.safe_flag
     }));
 
+    // Use service role key to bypass RLS for server-side operations
     const { error } = await supabase
       .from('creations')
       .insert(creationsToInsert);
