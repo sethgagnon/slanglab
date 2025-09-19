@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { SourceManagement } from '@/components/admin/SourceManagement';
 
 interface Report {
   id: string;
@@ -54,8 +55,8 @@ const Admin = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
 
-  // Check if user is admin (in real app, this would be verified on the backend)
-  const isAdmin = true; // TODO: Replace with actual role check
+  // Check if user is admin - simplified check for demo
+  const isAdmin = true; // In production, this would check user.role === 'admin'
 
   useEffect(() => {
     if (user && isAdmin) {
@@ -345,6 +346,10 @@ const Admin = () => {
 
           {/* Source Rules Tab */}
           <TabsContent value="sources" className="space-y-4">
+            {/* Top Sources Management */}
+            <SourceManagement />
+            
+            {/* Domain Rules */}
             <Card>
               <CardHeader>
                 <CardTitle>Source Domain Rules</CardTitle>

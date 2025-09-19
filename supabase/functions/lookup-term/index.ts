@@ -162,6 +162,52 @@ serve(async (req) => {
   }
 });
 
+async function getActiveSources() {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { data: sources, error } = await supabase
+      .from('search_sources')
+      .select('name, base_url, is_required, quality_score')
+      .eq('enabled', true)
+      .order('quality_score', { ascending: false });
+
+    if (error) {
+      console.error('Failed to fetch active sources:', error);
+      // Fallback to required sources
+      return [
+        { name: 'UrbanDictionary', base_url: 'https://www.urbandictionary.com' },
+        { name: 'TikTok', base_url: 'https://www.tiktok.com' }
+      ];
+    }
+
+    // Build final list: all required + highest quality optional (max 5 total)
+    const requiredSources = sources.filter(source => source.is_required);
+    const optionalSources = sources.filter(source => !source.is_required);
+    const finalSources = [...requiredSources];
+    const remainingSlots = Math.max(0, 5 - requiredSources.length);
+    
+    if (remainingSlots > 0) {
+      finalSources.push(...optionalSources.slice(0, remainingSlots));
+    }
+
+    return finalSources.map(source => ({
+      name: source.name,
+      base_url: source.base_url
+    }));
+
+  } catch (error) {
+    console.error('Error getting active sources:', error);
+    // Fallback to required sources
+    return [
+      { name: 'UrbanDictionary', base_url: 'https://www.urbandictionary.com' },
+      { name: 'TikTok', base_url: 'https://www.tiktok.com' }
+    ];
+  }
+}
+
 async function fetchAndProcessDefinition(term: string, normalizedTerm: string, supabase: any, existingTermId?: string) {
   // Step 1: Fetch snippets from search API
   const snippets = await fetchSnippets(term);
@@ -175,13 +221,23 @@ async function fetchAndProcessDefinition(term: string, normalizedTerm: string, s
   const moderatedDefinition = await moderateDefinition(definition);
   console.log('Moderated definition:', moderatedDefinition);
 
-  // Step 4: Save to database
+  // Step 4: Save to database and include sources used
+  const activeSources = await getActiveSources();
+  const moderatedDefinitionWithSources = {
+    ...moderatedDefinition,
+    sources_used: activeSources.map(s => s.name)
+  };
+  
   await saveDefinitionToDatabase(supabase, term, normalizedTerm, moderatedDefinition, snippets, existingTermId);
 
-  return moderatedDefinition;
+  return moderatedDefinitionWithSources;
 }
 
 async function fetchSnippets(term: string) {
+  // Get dynamic sources from get-active-sources function
+  const activeSources = await getActiveSources();
+  console.log(`Using ${activeSources.length} active sources:`, activeSources.map(s => s.name).join(', '));
+
   // Try SerpAPI first, then fallback to SEARCH_API_KEY for backward compatibility
   const serpApiKey = Deno.env.get('SERPAPI_API_KEY') || Deno.env.get('SEARCH_API_KEY');
   if (!serpApiKey) {
@@ -196,11 +252,12 @@ async function fetchSnippets(term: string) {
   }
 
   try {
-    // Using SerpAPI
-    const query = `${term} slang meaning definition`;
-    const searchUrl = `https://serpapi.com/search?q=${encodeURIComponent(query)}&api_key=${serpApiKey}&num=5&engine=google`;
+    // Build search query targeting active sources
+    const sourceQueries = activeSources.map(source => `site:${new URL(source.base_url).hostname}`);
+    const query = `${term} slang meaning definition (${sourceQueries.join(' OR ')})`;
+    const searchUrl = `https://serpapi.com/search?q=${encodeURIComponent(query)}&api_key=${serpApiKey}&num=10&engine=google`;
     
-    console.log('Calling SerpAPI with URL:', searchUrl.replace(serpApiKey, '[HIDDEN]'));
+    console.log('Calling SerpAPI with targeted query:', query);
     
     const response = await fetch(searchUrl);
 
@@ -212,7 +269,7 @@ async function fetchSnippets(term: string) {
     console.log('SerpAPI response received, organic results count:', data.organic_results?.length || 0);
 
     // Process SerpAPI search results
-    const snippets = data.organic_results?.slice(0, 5).map((result: any) => ({
+    const snippets = data.organic_results?.slice(0, 10).map((result: any) => ({
       title: result.title,
       url: result.link,
       snippet: result.snippet,

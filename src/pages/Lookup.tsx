@@ -36,6 +36,7 @@ interface DefinitionData {
     date?: string;
   }>;
   confidence: string;
+  sources_used?: string[];
 }
 
 const Lookup = () => {
@@ -354,10 +355,24 @@ const Lookup = () => {
                 </div>
               )}
 
+              {/* Sources Used */}
+              {definition.sources_used && definition.sources_used.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-2">Sources Used</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {definition.sources_used.map((source) => (
+                      <Badge key={source} variant="outline" className="text-xs">
+                        {source}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Citations */}
               {definition.citations.length > 0 && (
                 <div>
-                  <h3 className="font-semibold mb-2">Sources</h3>
+                  <h3 className="font-semibold mb-2">Citations</h3>
                   <div className="space-y-3">
                     {definition.citations.map((citation, index) => (
                       <div key={index} className="border rounded-lg p-3">

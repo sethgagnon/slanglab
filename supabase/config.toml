@@ -3,6 +3,9 @@ project_id = "zzegeatnzvoqhgffqfln"
 [functions.lookup-term]
 verify_jwt = false
 
+[functions.get-active-sources]
+verify_jwt = false
+
 [functions.generate-slang]
 verify_jwt = false
 
