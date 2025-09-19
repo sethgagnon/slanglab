@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUsageStats } from '@/hooks/useUsageStats';
 
 interface MonitoringData {
   id: string;
@@ -23,9 +24,12 @@ export const useSlangMonitoring = () => {
   const [monitoringData, setMonitoringData] = useState<MonitoringData[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const { plan, isAdmin } = useUsageStats();
+  
+  const hasLabProAccess = isAdmin || plan === 'LabPro';
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !hasLabProAccess) {
       setLoading(false);
       return;
     }
@@ -82,9 +86,13 @@ export const useSlangMonitoring = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, hasLabProAccess]);
 
   const triggerManualCheck = async () => {
+    if (!hasLabProAccess) {
+      return { success: false, error: 'LabPro subscription required for monitoring features' };
+    }
+    
     try {
       const { error } = await supabase.functions.invoke('monitor-shared-slang');
       if (error) throw error;
