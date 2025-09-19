@@ -29,6 +29,36 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Check usage limits
+    const authHeader = req.headers.get('authorization');
+    const clientInfo = req.headers.get('x-client-info');
+    
+    if (authHeader) {
+      // Authenticated user - check their plan limits
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+      
+      if (user) {
+        const usageCheck = await checkUserUsageLimits(supabase, user.id);
+        if (usageCheck.error) {
+          return new Response(JSON.stringify(usageCheck), {
+            status: 429,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+    } else {
+      // Anonymous user - check browser session limits
+      const sessionId = clientInfo || 'anonymous';
+      const usageCheck = await checkAnonymousUsageLimits(supabase, sessionId);
+      if (usageCheck.error) {
+        return new Response(JSON.stringify(usageCheck), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     const normalizedTerm = term.toLowerCase().trim().replace(/\s+/g, '-');
 
     // Check if term already exists in database
@@ -87,7 +117,6 @@ serve(async (req) => {
     }
 
     // Log the lookup for authenticated users
-    const authHeader = req.headers.get('authorization');
     if (authHeader) {
       const token = authHeader.replace('Bearer ', '');
       const { data: { user } } = await supabase.auth.getUser(token);
@@ -112,6 +141,10 @@ serve(async (req) => {
             });
         }
       }
+    } else {
+      // Track anonymous usage
+      const sessionId = clientInfo || 'anonymous';
+      await updateAnonymousUsage(supabase, sessionId);
     }
 
     return new Response(JSON.stringify(definition), {
@@ -407,6 +440,88 @@ async function saveDefinitionToDatabase(supabase: any, term: string, normalizedT
   }
 }
 
+async function checkUserUsageLimits(supabase: any, userId: string) {
+  // Get user profile to check plan
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('plan')
+    .eq('user_id', userId)
+    .single();
+
+  const plan = profile?.plan || 'Free';
+  
+  // SearchPro and LabPro have unlimited searches
+  if (plan === 'SearchPro' || plan === 'LabPro') {
+    return { success: true };
+  }
+
+  // Free plan: 3 searches per day
+  const today = new Date().toISOString().split('T')[0];
+  const { data: limits } = await supabase
+    .from('limits')
+    .select('lookups_used')
+    .eq('user_id', userId)
+    .eq('date', today)
+    .single();
+
+  const lookupsUsed = limits?.lookups_used || 0;
+  const dailyLimit = 3;
+
+  if (lookupsUsed >= dailyLimit) {
+    return {
+      error: 'Daily search limit reached',
+      message: 'You have reached your daily limit of 3 searches. Upgrade to SearchPro for unlimited searches!',
+      upgradeRequired: true,
+      currentUsage: lookupsUsed,
+      limit: dailyLimit
+    };
+  }
+
+  return { success: true };
+}
+
+async function checkAnonymousUsageLimits(supabase: any, sessionId: string) {
+  const { data: anonymousSearch } = await supabase
+    .from('anonymous_searches')
+    .select('search_count')
+    .eq('session_id', sessionId)
+    .single();
+
+  const searchCount = anonymousSearch?.search_count || 0;
+  
+  if (searchCount >= 1) {
+    return {
+      error: 'Free search limit reached',
+      message: 'You have used your 1 free search. Please create an account to get 3 daily searches!',
+      signUpRequired: true
+    };
+  }
+
+  return { success: true };
+}
+
+async function updateAnonymousUsage(supabase: any, sessionId: string) {
+  const { data: existing } = await supabase
+    .from('anonymous_searches')
+    .select('*')
+    .eq('session_id', sessionId)
+    .single();
+
+  if (existing) {
+    await supabase
+      .from('anonymous_searches')
+      .update({ search_count: existing.search_count + 1 })
+      .eq('id', existing.id);
+  } else {
+    await supabase
+      .from('anonymous_searches')
+      .insert({
+        session_id: sessionId,
+        search_count: 1
+      });
+  }
+}
+
 async function updateUsageLimits(supabase: any, userId: string) {
   const today = new Date().toISOString().split('T')[0];
   
@@ -438,7 +553,8 @@ async function updateUsageLimits(supabase: any, userId: string) {
         user_id: userId,
         date: today,
         lookups_used: 1,
-        generations_used: 0
+        generations_used: 0,
+        creations_used: 0
       });
   }
 }

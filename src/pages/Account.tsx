@@ -12,34 +12,16 @@ import {
   Users,
   Download,
   Eye,
-  EyeOff
+  EyeOff,
+  Zap
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-
-interface UsageStats {
-  lookupsUsed: number;
-  lookupsLimit: number;
-  generationsUsed: number;
-  generationsLimit: number;
-  plan: 'free' | 'plus' | 'team';
-}
+import { useUsageStats } from '@/hooks/useUsageStats';
 
 const Account = () => {
   const [showApiKey, setShowApiKey] = useState(false);
-  const [usage, setUsage] = useState<UsageStats>({
-    lookupsUsed: 2,
-    lookupsLimit: 5,
-    generationsUsed: 1,
-    generationsLimit: 3,
-    plan: 'free'
-  });
   const { user, signOut } = useAuth();
-
-  useEffect(() => {
-    if (user) {
-      // TODO: Load actual usage stats from API
-    }
-  }, [user]);
+  const usageStats = useUsageStats();
 
   if (!user) {
     return (
@@ -61,10 +43,10 @@ const Account = () => {
 
   const getPlanBadge = (plan: string) => {
     switch (plan) {
-      case 'plus':
-        return <Badge className="bg-primary text-primary-foreground"><Crown className="w-3 h-3 mr-1" />Plus</Badge>;
-      case 'team':
-        return <Badge className="bg-primary text-primary-foreground"><Users className="w-3 h-3 mr-1" />Team</Badge>;
+      case 'SearchPro':
+        return <Badge className="bg-primary text-primary-foreground"><Zap className="w-3 h-3 mr-1" />SearchPro</Badge>;
+      case 'LabPro':
+        return <Badge className="bg-primary text-primary-foreground"><Crown className="w-3 h-3 mr-1" />LabPro</Badge>;
       default:
         return <Badge variant="secondary">Free</Badge>;
     }
@@ -72,27 +54,24 @@ const Account = () => {
 
   const getPlanFeatures = (plan: string) => {
     switch (plan) {
-      case 'plus':
+      case 'SearchPro':
         return [
-          'Unlimited lookups',
-          'Unlimited generations',
-          'Favorites export (CSV)',
-          'Parent Mode',
-          'Share cards with OG images'
+          'Unlimited searches',
+          'No slang creation',
+          'Basic support'
         ];
-      case 'team':
+      case 'LabPro':
         return [
-          'Everything in Plus',
-          '5 team seats',
-          'Shared collections',
-          'Moderation view',
-          'Advanced exports'
+          'Unlimited searches', 
+          '25 slang creations per month',
+          'Priority support',
+          'Advanced features'
         ];
       default:
         return [
-          '5 lookups per day',
-          '3 generations per day',
-          'Basic features only'
+          '3 searches per day',
+          'No slang creation',
+          'Community support'
         ];
     }
   };
@@ -171,23 +150,29 @@ const Account = () => {
                   <CardTitle>Current Plan</CardTitle>
                   <CardDescription>Your subscription details</CardDescription>
                 </div>
-                {getPlanBadge(usage.plan)}
+                {getPlanBadge(usageStats.plan)}
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <h4 className="font-medium">Features included:</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  {getPlanFeatures(usage.plan).map((feature, index) => (
+                  {getPlanFeatures(usageStats.plan).map((feature, index) => (
                     <li key={index}>• {feature}</li>
                   ))}
                 </ul>
               </div>
-              {usage.plan === 'free' && (
-                <Button className="w-full">
-                  <Crown className="w-4 h-4 mr-2" />
-                  Upgrade to Plus
-                </Button>
+              {usageStats.plan === 'Free' && (
+                <div className="space-y-2">
+                  <Button className="w-full">
+                    <Zap className="w-4 h-4 mr-2" />
+                    Upgrade to SearchPro
+                  </Button>
+                  <Button className="w-full" variant="outline">
+                    <Crown className="w-4 h-4 mr-2" />
+                    Upgrade to LabPro
+                  </Button>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -201,32 +186,34 @@ const Account = () => {
             <CardContent className="space-y-6">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Lookups</span>
+                  <span className="text-sm font-medium">Searches</span>
                   <span className="text-sm text-muted-foreground">
-                    {usage.lookupsUsed} / {usage.lookupsLimit === -1 ? '∞' : usage.lookupsLimit}
+                    {usageStats.searchesUsed} / {usageStats.searchesLimit === -1 ? '∞' : usageStats.searchesLimit}
                   </span>
                 </div>
                 <Progress 
-                  value={usage.lookupsLimit === -1 ? 0 : (usage.lookupsUsed / usage.lookupsLimit) * 100} 
+                  value={usageStats.searchesLimit === -1 ? 0 : (usageStats.searchesUsed / usageStats.searchesLimit) * 100} 
                   className="h-2"
                 />
               </div>
               
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Generations</span>
-                  <span className="text-sm text-muted-foreground">
-                    {usage.generationsUsed} / {usage.generationsLimit === -1 ? '∞' : usage.generationsLimit}
-                  </span>
+              {(usageStats.plan === 'LabPro' || usageStats.creationsLimit > 0) && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Slang Creations</span>
+                    <span className="text-sm text-muted-foreground">
+                      {usageStats.creationsUsed} / {usageStats.creationsLimit === -1 ? '∞' : usageStats.creationsLimit}
+                    </span>
+                  </div>
+                  <Progress 
+                    value={usageStats.creationsLimit === -1 ? 0 : (usageStats.creationsUsed / usageStats.creationsLimit) * 100} 
+                    className="h-2"
+                  />
                 </div>
-                <Progress 
-                  value={usage.generationsLimit === -1 ? 0 : (usage.generationsUsed / usage.generationsLimit) * 100} 
-                  className="h-2"
-                />
-              </div>
+              )}
 
               <p className="text-xs text-muted-foreground">
-                Limits reset daily at midnight UTC
+                Search limits reset daily at midnight UTC. Creation limits reset monthly.
               </p>
             </CardContent>
           </Card>
@@ -257,7 +244,7 @@ const Account = () => {
                 </p>
               </div>
               
-              {usage.plan === 'free' && (
+              {usageStats.plan === 'Free' && (
                 <div className="p-3 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground">
                     API access is limited on the free plan. Upgrade for higher rate limits.
@@ -268,7 +255,7 @@ const Account = () => {
           </Card>
 
           {/* Data Export */}
-          {(usage.plan === 'plus' || usage.plan === 'team') && (
+          {(usageStats.plan === 'SearchPro' || usageStats.plan === 'LabPro') && (
             <Card className="md:col-span-2">
               <CardHeader>
                 <CardTitle>Data Export</CardTitle>
@@ -294,50 +281,50 @@ const Account = () => {
           )}
 
           {/* Plan Upgrade */}
-          {usage.plan === 'free' && (
+          {usageStats.plan === 'Free' && (
             <Card className="md:col-span-2">
               <CardHeader>
                 <CardTitle>Upgrade Your Experience</CardTitle>
-                <CardDescription>Unlock unlimited usage and advanced features</CardDescription>
+                <CardDescription>Choose the plan that fits your needs</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-semibold">Plus Plan</h3>
+                      <h3 className="font-semibold">SearchPro</h3>
                       <Badge className="bg-primary text-primary-foreground">
-                        <Crown className="w-3 h-3 mr-1" />Plus
+                        <Zap className="w-3 h-3 mr-1" />SearchPro
                       </Badge>
                     </div>
                     <div className="space-y-2 mb-4">
-                      <p className="text-2xl font-bold">$7<span className="text-sm font-normal">/month</span></p>
+                      <p className="text-2xl font-bold">$3<span className="text-sm font-normal">/month</span></p>
                       <ul className="text-sm text-muted-foreground space-y-1">
-                        <li>• Unlimited lookups & generations</li>
-                        <li>• CSV exports</li>
-                        <li>• Share cards with OG images</li>
-                        <li>• Parent Mode</li>
+                        <li>• Unlimited searches</li>
+                        <li>• Fast lookups</li>
+                        <li>• Basic support</li>
+                        <li>• No slang creation</li>
                       </ul>
                     </div>
-                    <Button className="w-full">Upgrade to Plus</Button>
+                    <Button className="w-full">Upgrade to SearchPro</Button>
                   </div>
 
                   <div className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-semibold">Team Plan</h3>
+                      <h3 className="font-semibold">LabPro</h3>
                       <Badge className="bg-primary text-primary-foreground">
-                        <Users className="w-3 h-3 mr-1" />Team
+                        <Crown className="w-3 h-3 mr-1" />LabPro
                       </Badge>
                     </div>
                     <div className="space-y-2 mb-4">
-                      <p className="text-2xl font-bold">$29<span className="text-sm font-normal">/month</span></p>
+                      <p className="text-2xl font-bold">$5<span className="text-sm font-normal">/month</span></p>
                       <ul className="text-sm text-muted-foreground space-y-1">
-                        <li>• Everything in Plus</li>
-                        <li>• 5 team seats</li>
-                        <li>• Shared collections</li>
-                        <li>• Moderation dashboard</li>
+                        <li>• Unlimited searches</li>
+                        <li>• 25 slang creations/month</li>
+                        <li>• Priority support</li>
+                        <li>• Advanced features</li>
                       </ul>
                     </div>
-                    <Button className="w-full" variant="outline">Upgrade to Team</Button>
+                    <Button className="w-full" variant="outline">Upgrade to LabPro</Button>
                   </div>
                 </div>
               </CardContent>

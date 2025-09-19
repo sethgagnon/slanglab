@@ -19,6 +19,9 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { UsageDisplay } from '@/components/ui/usage-display';
+import { UpgradePrompt } from '@/components/ui/upgrade-prompt';
+import { useUsageStats } from '@/hooks/useUsageStats';
 
 interface DefinitionData {
   meaning: string;
@@ -40,8 +43,10 @@ const Lookup = () => {
   const [query, setQuery] = useState(searchParams.get('q') || '');
   const [loading, setLoading] = useState(false);
   const [definition, setDefinition] = useState<DefinitionData | null>(null);
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState<'search-limit' | 'signup-required' | null>(null);
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+  const usageStats = useUsageStats();
 
   useEffect(() => {
     const q = searchParams.get('q');
@@ -55,17 +60,48 @@ const Lookup = () => {
     if (!searchTerm.trim()) return;
 
     setLoading(true);
+    setShowUpgradePrompt(null);
+    
     try {
+      // Send session ID for anonymous users
+      const headers: any = {};
+      if (!user) {
+        headers['x-client-info'] = `session-${Date.now()}`;
+      }
+
       const { data, error } = await supabase.functions.invoke('lookup-term', {
-        body: { term: searchTerm }
+        body: { term: searchTerm },
+        headers
       });
 
       if (error) {
+        // Handle usage limit errors
+        if (error.status === 429) {
+          if (error.signUpRequired) {
+            setShowUpgradePrompt('signup-required');
+          } else if (error.upgradeRequired) {
+            setShowUpgradePrompt('search-limit');
+          }
+          
+          toast({
+            title: "Usage limit reached",
+            description: error.message,
+            variant: "destructive",
+          });
+          return;
+        }
         throw error;
       }
 
       setDefinition(data);
       setSearchParams({ q: searchTerm });
+      
+      // Track anonymous usage in localStorage
+      if (!user) {
+        const current = parseInt(localStorage.getItem('anonymous_searches') || '0');
+        localStorage.setItem('anonymous_searches', (current + 1).toString());
+      }
+      
     } catch (error: any) {
       console.error('Search error:', error);
       toast({
@@ -208,6 +244,19 @@ const Lookup = () => {
       </header>
 
       <div className="container mx-auto px-4 py-8">
+        {/* Usage Display */}
+        {user && (
+          <div className="mx-auto max-w-2xl mb-6">
+            <UsageDisplay 
+              searchesUsed={usageStats.searchesUsed}
+              searchesLimit={usageStats.searchesLimit}
+              creationsUsed={usageStats.creationsUsed}
+              creationsLimit={usageStats.creationsLimit}
+              plan={usageStats.plan}
+            />
+          </div>
+        )}
+
         {/* Search Bar */}
         <div className="mx-auto max-w-2xl mb-8">
           <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="flex gap-2">
@@ -222,6 +271,13 @@ const Lookup = () => {
             </Button>
           </form>
         </div>
+
+        {/* Upgrade Prompt */}
+        {showUpgradePrompt && (
+          <div className="mx-auto max-w-2xl mb-8">
+            <UpgradePrompt type={showUpgradePrompt} />
+          </div>
+        )}
 
         {/* Results */}
         {loading && (
