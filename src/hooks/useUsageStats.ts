@@ -46,7 +46,11 @@ export const useUsageStats = () => {
           .eq('user_id', user.id)
           .single();
 
-        const userPlan = profile?.plan || 'Free';
+        // Normalize plan name to proper case for frontend consistency
+        const rawPlan = profile?.plan || 'free';
+        const userPlan = rawPlan === 'free' ? 'Free' : 
+                        rawPlan === 'searchpro' ? 'SearchPro' : 
+                        rawPlan === 'labpro' ? 'LabPro' : rawPlan;
 
         // Get today's usage for searches (daily) and weekly usage for creations
         const today = new Date().toISOString().split('T')[0];
