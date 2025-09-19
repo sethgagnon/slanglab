@@ -8,11 +8,11 @@ const corsHeaders = {
 };
 
 const VIBES = {
-  'praise': 'Generate 5 playful phrases for praising someone or showing appreciation. Each should be 1-2 words max.',
-  'hype': 'Generate 5 energetic phrases for showing excitement or hype. Each should be 1-2 words max.',
-  'food': 'Generate 5 fun phrases related to food, dining, or delicious things. Each should be 1-2 words max.',
-  'compliment': 'Generate 5 gentle compliment phrases that make someone feel good. Each should be 1-2 words max.',
-  'gentle-roast': 'Generate 5 very mild, playful teasing phrases that are friendly and harmless. Each should be 1-2 words max.',
+  'praise': 'Create 5 innovative compliment slang phrases that Gen Z would actually use. Think viral TikTok energy, creative wordplay, and internet culture mashups. Use sound symbolism, puns, and fresh combinations. Examples: "chef\'s kiss energy", "main character moment". Make them feel authentic and shareable.',
+  'hype': 'Generate 5 high-energy hype phrases that capture internet excitement culture. Think gaming victories, concert energy, and viral moment vibes. Use creative compounds, onomatopoeia, and pop culture references. Examples: "elite mode activated", "legendary status unlocked". Make them explosive and memorable.',
+  'food': 'Create 5 food-inspired slang phrases that blend culinary culture with modern internet language. Think foodie influencer meets Gen Z creativity. Use cooking metaphors, flavor descriptions, and restaurant culture. Examples: "seasoned to perfection", "chef mode activated". Make them deliciously creative.',
+  'compliment': 'Generate 5 next-level compliment phrases that sound fresh and genuine. Blend aesthetic trends, personality archetypes, and positive psychology. Use creative metaphors and contemporary references. Examples: "cottagecore queen", "golden retriever energy". Make them feel personal and uplifting.',
+  'gentle-roast': 'Create 5 witty but affectionate teasing phrases that show love through playful shade. Think best friend banter and sibling energy. Use clever wordplay and harmless absurdity. Examples: "lovable chaos gremlin", "certified overthinker". Keep them endearing and fun.',
 };
 
 serve(async (req) => {
@@ -131,13 +131,22 @@ async function generateSlang(vibe: string) {
   const prompt = `${vibePrompt}
 
 Return a JSON array with exactly 5 items. Each item should have:
-{ "phrase": string (max 2 words), "meaning": string (max 12 words), "example": string (safe sentence) }
+{ "phrase": string (1-3 words), "meaning": string (15-20 words maximum), "example": string (natural conversational sentence) }
 
-Rules:
+Creative Instructions:
+- Use wordplay, puns, alliteration, and sound patterns
+- Blend different linguistic styles (formal meets slang, tech meets poetry)
+- Reference internet culture, aesthetics, and contemporary vibes WITHOUT claiming they're trending
+- Create compound words and fresh metaphors
+- Mix different formality levels for variety
+- Use sensory language and vivid imagery
+- Make each phrase feel distinct and memorable
+
+Safety Rules:
 - No profanity, slurs, sexual content, harassment, or targeted insults
-- Do NOT claim phrases are trending or popular
-- Make them creative but family-friendly
-- Examples should be safe for all audiences
+- Keep examples conversational and natural
+- Family-friendly but not childish
+- Avoid stereotypes or cultural appropriation
 
 Return only the JSON array, no other text.`;
 
@@ -149,15 +158,14 @@ Return only the JSON array, no other text.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5-mini-2025-08-07',
         messages: [
           {
             role: 'system',
             content: prompt
           }
         ],
-        max_tokens: 1000,
-        temperature: 0.8,
+        max_completion_tokens: 1500,
       }),
     });
 
@@ -180,32 +188,32 @@ Return only the JSON array, no other text.`;
     }
   } catch (error) {
     console.error('OpenAI API error:', error);
-    // Return fallback creations
+    // Return creative fallback creations
     return [
       {
-        phrase: 'mood boost',
-        meaning: 'something that instantly improves your day',
-        example: 'That compliment was a real mood boost.'
+        phrase: 'aesthetic architect',
+        meaning: 'someone who effortlessly curates beautiful vibes and experiences in their daily life',
+        example: 'You\'re such an aesthetic architect - your whole setup is giving main character energy.'
       },
       {
-        phrase: 'golden era',
-        meaning: 'peak performance or excellence',
-        example: 'You\'re in your golden era right now.'
+        phrase: 'serotonin supplier',
+        meaning: 'a person whose presence instantly boosts everyone\'s mood and positive energy levels',
+        example: 'Thanks for being my daily serotonin supplier when work gets chaotic.'
       },
       {
-        phrase: 'energy drink',
-        meaning: 'person who brings positive vibes',
-        example: 'You\'re like a human energy drink today.'
+        phrase: 'chaos coordinator',
+        meaning: 'someone who thrives in messy situations and somehow makes everything work perfectly',
+        example: 'You\'re like a chaos coordinator - turning this disaster into something amazing.'
       },
       {
-        phrase: 'chef\'s choice',
-        meaning: 'something perfectly selected',
-        example: 'Your outfit today is chef\'s choice!'
+        phrase: 'vibe calibrator',
+        meaning: 'a person who naturally adjusts the energy of any room to match what\'s needed',
+        example: 'She\'s the ultimate vibe calibrator - always knows exactly what the moment requires.'
       },
       {
-        phrase: 'smooth operator',
-        meaning: 'someone handling things effortlessly',
-        example: 'Look at you being a smooth operator.'
+        phrase: 'legendary specimen',
+        meaning: 'someone who consistently does remarkable things that leave everyone genuinely impressed',
+        example: 'That presentation was incredible - you\'re honestly a legendary specimen at this point.'
       }
     ];
   }
