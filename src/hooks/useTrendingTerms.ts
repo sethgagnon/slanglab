@@ -24,7 +24,12 @@ const FALLBACK_TERMS = [
   { term: 'ratio', confidence: 'High' as const, tone: 'neutral', lookupCount: 0 },
   { term: 'sigma', confidence: 'Medium' as const, tone: 'niche', lookupCount: 0 },
   { term: 'skibidi', confidence: 'Low' as const, tone: 'niche', lookupCount: 0 },
-  { term: 'the ick', confidence: 'High' as const, tone: 'insulting', lookupCount: 0 }
+  { term: 'the ick', confidence: 'High' as const, tone: 'insulting', lookupCount: 0 },
+  { term: 'slay', confidence: 'High' as const, tone: 'positive', lookupCount: 0 },
+  { term: 'periodt', confidence: 'High' as const, tone: 'neutral', lookupCount: 0 },
+  { term: 'no cap', confidence: 'High' as const, tone: 'neutral', lookupCount: 0 },
+  { term: 'bet', confidence: 'High' as const, tone: 'positive', lookupCount: 0 },
+  { term: 'sus', confidence: 'High' as const, tone: 'neutral', lookupCount: 0 }
 ];
 
 export const useTrendingTerms = (): UseTrendingTermsReturn => {
@@ -66,8 +71,9 @@ export const useTrendingTerms = (): UseTrendingTermsReturn => {
 
         // Convert to array and sort by count
         const sortedTerms = Array.from(termCounts.entries())
-          .sort(([, a], [, b]) => b - a)
-          .slice(0, 10);
+          .sort(([, a], [, b]) => b - a);
+
+        let trending: TrendingTerm[] = [];
 
         if (sortedTerms.length > 0) {
           // Fetch additional data for these terms
@@ -82,7 +88,7 @@ export const useTrendingTerms = (): UseTrendingTermsReturn => {
             .in('terms.text', termTexts);
 
           // Map trending terms with their metadata
-          const trending = sortedTerms.map(([term, count]) => {
+          trending = sortedTerms.map(([term, count]) => {
             const sense = senseData?.find((s: any) => s.terms?.text === term);
             return {
               term,
@@ -90,10 +96,17 @@ export const useTrendingTerms = (): UseTrendingTermsReturn => {
               tone: sense?.tone || 'neutral',
               lookupCount: count
             };
-          }).slice(0, 10);
-
-          setTrendingTerms(trending);
+          });
         }
+
+        // Ensure we have at least 10 terms by combining with fallback terms
+        const usedTerms = new Set(trending.map(t => t.term.toLowerCase()));
+        const additionalTerms = FALLBACK_TERMS.filter(
+          t => !usedTerms.has(t.term.toLowerCase())
+        );
+        
+        const finalTerms = [...trending, ...additionalTerms].slice(0, 10);
+        setTrendingTerms(finalTerms);
 
         setLastUpdated(new Date().toISOString());
       } catch (error) {
