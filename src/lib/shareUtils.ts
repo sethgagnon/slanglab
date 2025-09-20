@@ -163,7 +163,7 @@ export const getShareUrls = (creation: Creation) => {
   
   return {
     twitter: `https://x.com/intent/tweet?text=${encodedTwitterText}`,
-    facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodeURIComponent(baseContent.text)}`,
+    facebook: `https://www.facebook.com/dialog/share?app_id=1&href=${encodedUrl}&display=popup`,
     reddit: `https://reddit.com/submit?url=${encodedUrl}&title=${encodedTitle}`,
     linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}&title=${encodedTitle}&summary=${encodeURIComponent(linkedinContent.text)}`,
     whatsapp: `https://web.whatsapp.com/send?text=${encodeURIComponent(whatsappContent.text)}`,

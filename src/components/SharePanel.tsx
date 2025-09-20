@@ -104,7 +104,25 @@ export const SharePanel: React.FC<SharePanelProps> = ({ creation, userId, classN
         break;
 
       case 'facebook':
-        openUrl(getShareUrls(creation).facebook);
+        try {
+          openUrl(getShareUrls(creation).facebook);
+        } catch (error) {
+          // Fallback for Facebook sharing issues
+          const shareUrl = generateShareContent(creation).url;
+          const success = await copyToClipboard(shareUrl);
+          if (success) {
+            toast({ 
+              title: 'Facebook sharing not available',
+              description: 'Link copied to clipboard. Paste it in your Facebook post.',
+            });
+          } else {
+            toast({ 
+              title: 'Facebook sharing failed',
+              description: 'Please try copying the link manually.',
+              variant: 'destructive'
+            });
+          }
+        }
         break;
 
       case 'reddit':
