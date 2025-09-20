@@ -5,9 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Search, Sparkles, Shield, TrendingUp } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Search, Sparkles, Shield, TrendingUp, User, LogOut, History, Settings } from 'lucide-react';
 import { useTrendingTerms } from '@/hooks/useTrendingTerms';
 import { SEOHead, createWebsiteSchema } from '@/components/SEOHead';
+import { useAuth } from '@/contexts/AuthContext';
 
 const DEMO_TERMS = [{
   term: 'mid',
@@ -54,6 +56,7 @@ const DEMO_TERMS = [{
 const Landing = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, loading, signOut } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [isNavigating, setIsNavigating] = useState(false);
   const {
@@ -99,6 +102,23 @@ const Landing = () => {
       setIsNavigating(false);
     }
   };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Signed out successfully",
+        description: "You have been signed out of your account.",
+      });
+    } catch (error) {
+      console.error('Sign out failed:', error);
+      toast({
+        title: "Sign out failed",
+        description: "Failed to sign out. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
   
   const exampleTerms = ['mid', 'rizz', 'sus', 'bet'];
   
@@ -119,21 +139,48 @@ const Landing = () => {
               <h1 className="text-xl font-bold">SlangLab</h1>
             </div>
             <div className="flex items-center space-x-2">
-              <Button 
-                variant="outline" 
-                onClick={handleSignInClick}
-                disabled={isNavigating}
-                className="relative"
-              >
-                {isNavigating ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                    Signing In...
-                  </>
-                ) : (
-                  'Sign In'
-                )}
-              </Button>
+              {loading ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+              ) : user ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="flex items-center space-x-2">
+                      <User className="h-4 w-4" />
+                      <span>{user.email}</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => navigate('/account')}>
+                      <Settings className="mr-2 h-4 w-4" />
+                      Account
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/history')}>
+                      <History className="mr-2 h-4 w-4" />
+                      History
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleSignOut}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Sign Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  onClick={handleSignInClick}
+                  disabled={isNavigating}
+                  className="relative"
+                >
+                  {isNavigating ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                      Signing In...
+                    </>
+                  ) : (
+                    'Sign In'
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         </header>
