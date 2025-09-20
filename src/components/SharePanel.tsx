@@ -177,13 +177,9 @@ export const SharePanel: React.FC<SharePanelProps> = ({ creation, userId, classN
   const platformButtons = [
     { platform: 'twitter' as SharePlatform, icon: Twitter, label: 'X (Twitter)', color: 'hover:bg-slate-100' },
     { platform: 'facebook' as SharePlatform, icon: Facebook, label: 'Facebook', color: 'hover:bg-blue-50' },
-    { platform: 'instagram' as SharePlatform, icon: Instagram, label: 'Instagram', color: 'hover:bg-pink-50' },
     { platform: 'snapchat' as SharePlatform, icon: Ghost, label: 'Snapchat', color: 'hover:bg-yellow-50' },
     { platform: 'tiktok' as SharePlatform, icon: Video, label: 'TikTok', color: 'hover:bg-slate-100' },
     { platform: 'reddit' as SharePlatform, icon: Hash, label: 'Reddit', color: 'hover:bg-orange-50' },
-    { platform: 'linkedin' as SharePlatform, icon: Linkedin, label: 'LinkedIn', color: 'hover:bg-blue-50' },
-    { platform: 'whatsapp' as SharePlatform, icon: Phone, label: 'WhatsApp', color: 'hover:bg-green-50' },
-    { platform: 'telegram' as SharePlatform, icon: Send, label: 'Telegram', color: 'hover:bg-blue-50' },
   ];
 
   if (detectWebShareSupport()) {
