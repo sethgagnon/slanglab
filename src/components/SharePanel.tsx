@@ -36,6 +36,7 @@ import {
   getShareUrls,
   generateShareContent
 } from '@/lib/shareUtils';
+import { facebookSDK } from '@/lib/facebookSDK';
 
 interface SharePanelProps {
   creation: Creation;
@@ -104,7 +105,7 @@ export const SharePanel: React.FC<SharePanelProps> = ({ creation, userId, classN
         break;
 
       case 'facebook':
-        openUrl(getShareUrls(creation).facebook);
+        await handleFacebookShare();
         break;
 
       case 'reddit':
@@ -143,6 +144,30 @@ export const SharePanel: React.FC<SharePanelProps> = ({ creation, userId, classN
           await handleCopyAndOpenApp(platform, 'snapchat://');
         }
         break;
+    }
+  };
+
+  const handleFacebookShare = async () => {
+    const shareContent = generateShareContent(creation);
+    const success = await facebookSDK.shareDialog(shareContent.url, shareContent.text);
+    
+    if (success) {
+      toast({ title: 'Shared to Facebook!' });
+    } else {
+      // Fallback to copy link
+      const copySuccess = await copyToClipboard(shareContent.url);
+      if (copySuccess) {
+        toast({ 
+          title: 'Facebook sharing unavailable',
+          description: 'Link copied! Paste it in your Facebook post.'
+        });
+      } else {
+        toast({ 
+          title: 'Facebook sharing failed',
+          description: 'Please try again later.',
+          variant: 'destructive'
+        });
+      }
     }
   };
 
