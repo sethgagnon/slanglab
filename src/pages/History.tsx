@@ -52,7 +52,7 @@ const History = () => {
   const [dateFilter, setDateFilter] = useState('all');
   const [lookups, setLookups] = useState<HistoryItem[]>([]);
   const [favorites, setFavorites] = useState<HistoryItem[]>([]);
-  const { user, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const { toast } = useToast();
   const { creations, loading: creationsLoading, refresh: refreshCreations } = useCreations();
 
@@ -249,6 +249,18 @@ const History = () => {
     }
   };
 
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -258,7 +270,7 @@ const History = () => {
             <p className="text-muted-foreground mb-6">
               Please sign in to view your lookup history and favorites.
             </p>
-            <Button asChild>
+            <Button asChild className="w-full">
               <Link to="/auth">Sign In</Link>
             </Button>
           </CardContent>
