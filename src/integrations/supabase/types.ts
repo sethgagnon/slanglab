@@ -43,6 +43,7 @@ export type Database = {
       }
       anonymous_searches: {
         Row: {
+          anonymized_ip: string | null
           created_at: string
           id: string
           ip_address: string | null
@@ -51,6 +52,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          anonymized_ip?: string | null
           created_at?: string
           id?: string
           ip_address?: string | null
@@ -59,6 +61,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          anonymized_ip?: string | null
           created_at?: string
           id?: string
           ip_address?: string | null
@@ -574,6 +577,7 @@ export type Database = {
       security_audit_log: {
         Row: {
           action: string
+          anonymized_ip: string | null
           error_message: string | null
           id: string
           ip_address: unknown | null
@@ -586,6 +590,7 @@ export type Database = {
         }
         Insert: {
           action: string
+          anonymized_ip?: string | null
           error_message?: string | null
           id?: string
           ip_address?: unknown | null
@@ -598,6 +603,7 @@ export type Database = {
         }
         Update: {
           action?: string
+          anonymized_ip?: string | null
           error_message?: string | null
           id?: string
           ip_address?: unknown | null
@@ -895,9 +901,25 @@ export type Database = {
       }
     }
     Functions: {
+      anonymize_ip: {
+        Args: { ip_address: string }
+        Returns: string
+      }
+      check_edge_function_rate_limit: {
+        Args: {
+          identifier: string
+          max_requests?: number
+          window_minutes?: number
+        }
+        Returns: boolean
+      }
       check_profile_access_rate_limit: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      cleanup_old_data: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       get_week_start: {
         Args: { input_date?: string }
@@ -914,6 +936,10 @@ export type Database = {
       mask_sensitive_data: {
         Args: { input_text: string }
         Returns: string
+      }
+      update_anonymized_ips: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       user_can_create_content: {
         Args: { user_uuid: string }
