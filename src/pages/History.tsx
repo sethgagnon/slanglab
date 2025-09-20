@@ -23,6 +23,8 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useCreations } from '@/hooks/useCreations';
+import { SharePanel } from '@/components/SharePanel';
 
 interface HistoryItem {
   id: string;
@@ -50,14 +52,13 @@ const History = () => {
   const [dateFilter, setDateFilter] = useState('all');
   const [lookups, setLookups] = useState<HistoryItem[]>([]);
   const [favorites, setFavorites] = useState<HistoryItem[]>([]);
-  const [creations, setCreations] = useState<Creation[]>([]);
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+  const { creations, loading: creationsLoading, refresh: refreshCreations } = useCreations();
 
   useEffect(() => {
     if (user) {
       loadHistory();
-      loadCreations();
     }
   }, [user]);
 
@@ -147,28 +148,6 @@ const History = () => {
     }
   };
 
-  const loadCreations = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('creations')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        throw error;
-      }
-
-      setCreations(data || []);
-    } catch (error: any) {
-      console.error('Error loading creations:', error);
-      toast({
-        title: "Load failed",
-        description: error.message || "Unable to load creations.",
-        variant: "destructive",
-      });
-    }
-  };
 
   const getConfidenceColor = (confidence: string) => {
     switch (confidence) {
@@ -220,6 +199,56 @@ const History = () => {
     });
   };
 
+  const filterCreations = (items: Creation[]) => {
+    return items.filter(item => {
+      const matchesSearch = item.phrase.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           item.meaning.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           item.example.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      let matchesDate = true;
+      if (dateFilter !== 'all') {
+        const itemDate = new Date(item.created_at);
+        const now = new Date();
+        
+        switch (dateFilter) {
+          case 'today':
+            matchesDate = itemDate.toDateString() === now.toDateString();
+            break;
+          case 'week':
+            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            matchesDate = itemDate >= weekAgo;
+            break;
+          case 'month':
+            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            matchesDate = itemDate >= monthAgo;
+            break;
+        }
+      }
+      
+      return matchesSearch && matchesDate;
+    });
+  };
+
+  const getCreationTypeColor = (type: string) => {
+    switch (type) {
+      case 'manual': return 'bg-primary text-primary-foreground';
+      case 'ai': return 'bg-secondary text-secondary-foreground';
+      default: return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  const getVibeColor = (vibe?: string) => {
+    if (!vibe) return 'border-muted text-muted-foreground';
+    switch (vibe) {
+      case 'cool': return 'border-blue-500 text-blue-500';
+      case 'funny': return 'border-yellow-500 text-yellow-500';
+      case 'edgy': return 'border-red-500 text-red-500';
+      case 'cute': return 'border-pink-500 text-pink-500';
+      case 'smart': return 'border-purple-500 text-purple-500';
+      default: return 'border-muted text-muted-foreground';
+    }
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -240,6 +269,7 @@ const History = () => {
 
   const filteredLookups = filterItems(lookups);
   const filteredFavorites = filterItems(favorites);
+  const filteredCreations = filterCreations(creations);
 
   return (
     <div className="min-h-screen bg-background">
@@ -444,6 +474,78 @@ const History = () => {
                         >
                           <Star className="h-4 w-4 fill-current text-primary" />
                         </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="creations" className="space-y-4">
+            {creationsLoading ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Loading your creations...</p>
+                </CardContent>
+              </Card>
+            ) : filteredCreations.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Zap className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold mb-2">No creations yet</h3>
+                  <p className="text-muted-foreground mb-4">
+                    {searchTerm || dateFilter !== 'all' 
+                      ? 'Try adjusting your filters or search terms.'
+                      : 'Start creating your own slang in the lab!'
+                    }
+                  </p>
+                  <Button asChild>
+                    <Link to="/slang-lab">
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Create Slang
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {filteredCreations.map((creation) => (
+                  <Card key={creation.id}>
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="text-lg font-semibold">{creation.phrase}</h3>
+                            <Badge className={getCreationTypeColor(creation.creation_type)}>
+                              {creation.creation_type === 'manual' ? 'Manual' : 'AI Generated'}
+                            </Badge>
+                            {creation.vibe && (
+                              <Badge variant="outline" className={getVibeColor(creation.vibe)}>
+                                {creation.vibe}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-muted-foreground mb-2">{creation.meaning}</p>
+                          <p className="text-sm text-muted-foreground mb-3 italic">
+                            Example: "{creation.example}"
+                          </p>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Clock className="h-4 w-4" />
+                            {new Date(creation.created_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <SharePanel 
+                            creation={{
+                              ...creation,
+                              vibe: creation.vibe || 'cool'
+                            }} 
+                            userId={user.id}
+                            className="ml-4"
+                          />
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
