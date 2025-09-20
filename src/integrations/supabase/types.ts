@@ -448,54 +448,30 @@ export type Database = {
       }
       profiles: {
         Row: {
-          age_verified: boolean | null
-          birth_date: string | null
           created_at: string
-          current_period_end: string | null
           email: string | null
           id: string
           name: string | null
-          parent_email: string | null
           plan: string | null
           role: string | null
-          safe_mode: boolean | null
-          stripe_customer_id: string | null
-          subscription_id: string | null
-          subscription_status: string | null
           user_id: string
         }
         Insert: {
-          age_verified?: boolean | null
-          birth_date?: string | null
           created_at?: string
-          current_period_end?: string | null
           email?: string | null
           id?: string
           name?: string | null
-          parent_email?: string | null
           plan?: string | null
           role?: string | null
-          safe_mode?: boolean | null
-          stripe_customer_id?: string | null
-          subscription_id?: string | null
-          subscription_status?: string | null
           user_id: string
         }
         Update: {
-          age_verified?: boolean | null
-          birth_date?: string | null
           created_at?: string
-          current_period_end?: string | null
           email?: string | null
           id?: string
           name?: string | null
-          parent_email?: string | null
           plan?: string | null
           role?: string | null
-          safe_mode?: boolean | null
-          stripe_customer_id?: string | null
-          subscription_id?: string | null
-          subscription_status?: string | null
           user_id?: string
         }
         Relationships: []
@@ -962,13 +938,23 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
-      decrypt_pii: {
-        Args: { encrypted_data: string }
-        Returns: string
+      get_user_payment_info: {
+        Args: { target_user_id: string }
+        Returns: {
+          current_period_end: string
+          stripe_customer_id: string
+          subscription_id: string
+          subscription_status: string
+        }[]
       }
-      encrypt_pii: {
-        Args: { data: string }
-        Returns: string
+      get_user_personal_info: {
+        Args: { target_user_id: string }
+        Returns: {
+          age_verified: boolean
+          birth_date: string
+          parent_email: string
+          safe_mode: boolean
+        }[]
       }
       get_week_start: {
         Args: { input_date?: string }

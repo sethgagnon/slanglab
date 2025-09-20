@@ -81,7 +81,7 @@ const SlangLab = () => {
       
       try {
         const { data, error } = await supabase
-          .from('profiles')
+          .from('user_profile_secure')
           .select('plan, role, age_verified, birth_date, safe_mode')
           .eq('user_id', user.id)
           .single();

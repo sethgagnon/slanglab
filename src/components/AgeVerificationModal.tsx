@@ -72,14 +72,14 @@ export const AgeVerificationModal = ({ open, onVerificationComplete, userId }: A
 
     try {
       const { error } = await supabase
-        .from('profiles')
-        .update({
+        .from('secure_personal_info')
+        .upsert({
+          user_id: userId,
           birth_date: birthDate,
           age_verified: true,
           parent_email: isMinor ? parentEmail : null,
           safe_mode: isMinor,
-        })
-        .eq('user_id', userId);
+        });
 
       if (error) throw error;
 
