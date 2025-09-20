@@ -61,14 +61,8 @@ serve(async (req) => {
       );
     }
 
-    // Create Supabase client with service role key (if not already created)
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
     // Insert share record
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('slang_shares')
       .insert({
         creation_id,
@@ -113,16 +107,6 @@ serve(async (req) => {
       }
     }
 
-    if (error) {
-      console.error('Database error:', error);
-      return new Response(
-        JSON.stringify({ error: 'Failed to log share' }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
 
     console.log('Share logged successfully:', data);
 
