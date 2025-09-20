@@ -824,7 +824,51 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      secure_profiles: {
+        Row: {
+          age_verified: boolean | null
+          birth_date: string | null
+          created_at: string | null
+          email: string | null
+          id: string | null
+          name: string | null
+          parent_email: string | null
+          plan: string | null
+          role: string | null
+          safe_mode: boolean | null
+          subscription_status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          age_verified?: boolean | null
+          birth_date?: never
+          created_at?: string | null
+          email?: never
+          id?: string | null
+          name?: never
+          parent_email?: never
+          plan?: string | null
+          role?: string | null
+          safe_mode?: boolean | null
+          subscription_status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          age_verified?: boolean | null
+          birth_date?: never
+          created_at?: string | null
+          email?: never
+          id?: string | null
+          name?: never
+          parent_email?: never
+          plan?: string | null
+          role?: string | null
+          safe_mode?: boolean | null
+          subscription_status?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_week_start: {
@@ -838,6 +882,10 @@ export type Database = {
       is_profile_owner: {
         Args: { profile_user_id: string }
         Returns: boolean
+      }
+      mask_sensitive_data: {
+        Args: { input_text: string }
+        Returns: string
       }
       user_can_create_content: {
         Args: { user_uuid: string }
