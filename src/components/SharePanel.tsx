@@ -149,26 +149,39 @@ export const SharePanel: React.FC<SharePanelProps> = ({ creation, userId, classN
 
   const handleFacebookShare = async () => {
     const shareContent = generateShareContent(creation);
-    const success = await facebookSDK.shareDialog(shareContent.url, shareContent.text);
     
-    if (success) {
-      toast({ title: 'Shared to Facebook!' });
-    } else {
-      // Fallback to copy link
-      const copySuccess = await copyToClipboard(shareContent.url);
-      if (copySuccess) {
-        toast({ 
-          title: 'Facebook sharing unavailable',
-          description: 'Link copied! Paste it in your Facebook post.'
-        });
-      } else {
-        toast({ 
-          title: 'Facebook sharing failed',
-          description: 'Please try again later.',
-          variant: 'destructive'
-        });
+    try {
+      const success = await facebookSDK.shareDialog(shareContent.url, shareContent.text);
+      
+      if (success) {
+        toast({ title: 'Shared to Facebook!' });
+        return;
       }
+    } catch (error) {
+      console.error('Facebook SDK error:', error);
     }
+
+    // Fallback to copy link with delayed access to handle focus issues
+    setTimeout(async () => {
+      try {
+        const copySuccess = await copyToClipboard(shareContent.url);
+        if (copySuccess) {
+          toast({ 
+            title: 'Facebook sharing unavailable',
+            description: 'Link copied! Paste it in your Facebook post.'
+          });
+        } else {
+          // Final fallback - show manual copy dialog
+          setCurrentPlatform('facebook');
+          setIsInstructionModalOpen(true);
+        }
+      } catch (error) {
+        console.error('Clipboard error:', error);
+        // Show manual copy dialog as last resort
+        setCurrentPlatform('facebook');
+        setIsInstructionModalOpen(true);
+      }
+    }, 100); // Small delay to allow document to regain focus
   };
 
   const handleCopyAndOpenApp = async (platform: SharePlatform, deepLink: string) => {
@@ -246,33 +259,59 @@ export const SharePanel: React.FC<SharePanelProps> = ({ creation, userId, classN
           <DialogHeader>
             <DialogTitle>Share on {currentPlatform}</DialogTitle>
             <DialogDescription>
-              Your caption has been copied to clipboard. Follow these steps:
+              {currentPlatform === 'facebook' 
+                ? 'Copy the link below and paste it in your Facebook post:'
+                : 'Your caption has been copied to clipboard. Follow these steps:'
+              }
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <ol className="list-decimal list-inside space-y-2 text-sm">
-              <li>Open the {currentPlatform} app on your device</li>
-              <li>Create a new post</li>
-              <li>Paste the copied caption</li>
-              <li>Share your slang creation!</li>
-            </ol>
-            <Button
-              onClick={async () => {
-                if (currentPlatform) {
-                  const content = formatForPlatform(creation, currentPlatform);
-                  const textToCopy = 'caption' in content ? content.caption : content.text;
-                  const success = await copyToClipboard(textToCopy);
-                  if (success) {
-                    toast({ title: 'Caption copied again!' });
+            {currentPlatform === 'facebook' ? (
+              <div className="space-y-3">
+                <div className="p-3 bg-muted rounded-md">
+                  <p className="text-sm font-mono break-all">{generateShareContent(creation).url}</p>
+                </div>
+                <Button
+                  onClick={async () => {
+                    const success = await copyToClipboard(generateShareContent(creation).url);
+                    if (success) {
+                      toast({ title: 'Link copied!' });
+                    }
+                  }}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy Link
+                </Button>
+              </div>
+            ) : (
+              <ol className="list-decimal list-inside space-y-2 text-sm">
+                <li>Open the {currentPlatform} app on your device</li>
+                <li>Create a new post</li>
+                <li>Paste the copied caption</li>
+                <li>Share your slang creation!</li>
+              </ol>
+            )}
+            {currentPlatform !== 'facebook' && (
+              <Button
+                onClick={async () => {
+                  if (currentPlatform) {
+                    const content = formatForPlatform(creation, currentPlatform);
+                    const textToCopy = 'caption' in content ? content.caption : content.text;
+                    const success = await copyToClipboard(textToCopy);
+                    if (success) {
+                      toast({ title: 'Caption copied again!' });
+                    }
                   }
-                }
-              }}
-              variant="outline"
-              className="w-full"
-            >
-              <Copy className="h-4 w-4 mr-2" />
-              Copy Caption Again
-            </Button>
+                }}
+                variant="outline"
+                className="w-full"
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copy Caption Again
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

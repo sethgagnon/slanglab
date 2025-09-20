@@ -60,8 +60,16 @@ class FacebookSDKManager {
 
   async shareDialog(url: string, quote?: string): Promise<boolean> {
     try {
+      console.log('Attempting Facebook share for URL:', url);
       const loaded = await this.loadSDK();
-      if (!loaded || !window.FB) {
+      
+      if (!loaded) {
+        console.warn('Facebook SDK failed to load');
+        return false;
+      }
+      
+      if (!window.FB) {
+        console.warn('Facebook SDK not available on window object');
         return false;
       }
 
@@ -71,8 +79,18 @@ class FacebookSDKManager {
           href: url,
           quote: quote
         }, (response: any) => {
-          // Facebook share dialog was successful if response exists and wasn't cancelled
-          resolve(response && !response.error_code);
+          console.log('Facebook share response:', response);
+          
+          // Check if user cancelled the dialog
+          if (!response || response.error_code) {
+            console.log('Facebook share cancelled or failed:', response);
+            resolve(false);
+            return;
+          }
+          
+          // Share was successful
+          console.log('Facebook share successful');
+          resolve(true);
         });
       });
     } catch (error) {
