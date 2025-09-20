@@ -38,7 +38,7 @@ export const generateShareContent = (creation: Creation) => {
   
   const content = {
     title: `Check out this AI-generated slang: "${creation.phrase}"`,
-    text: `"${creation.phrase}" means ${creation.meaning}. Example: "${creation.example}" Create & Track your own slang & lingo at SlangLab. See if you start the next slang trend! #SlangLab #AISlang`,
+    text: `"${creation.phrase}" means ${creation.meaning}. Example: "${creation.example}" Create & Track your own slang & lingo at SlangLab. See if you start the next slang trend!`,
     url: shareUrl,
     hashtags: ['SlangLab', 'AISlang'],
   };
@@ -48,18 +48,18 @@ export const generateShareContent = (creation: Creation) => {
 
 export const formatForPlatform = (creation: Creation, platform: SharePlatform) => {
   const content = generateShareContent(creation);
-  const standardText = `${content.text} ${content.url}`;
   
   switch (platform) {
     case 'twitter':
       return {
-        text: standardText,
+        text: content.text,
+        url: content.url,
         hashtags: content.hashtags.join(','),
       };
     
     case 'facebook':
       return {
-        text: standardText,
+        text: `${content.text} ${content.url}`,
         url: content.url,
       };
     
@@ -67,20 +67,20 @@ export const formatForPlatform = (creation: Creation, platform: SharePlatform) =
     case 'snapchat':
     case 'tiktok':
       return {
-        caption: standardText,
+        caption: `${content.text}\n\n${content.url}\n\n#${content.hashtags.join(' #')}`,
       };
     
     case 'reddit':
       return {
         title: content.title,
-        text: standardText,
+        text: `${content.text}\n\n${content.url}`,
       };
     
     case 'linkedin':
     case 'whatsapp':
     case 'telegram':
       return {
-        text: standardText,
+        text: `${content.text}\n\n${content.url}\n\n#${content.hashtags.join(' #')}`,
       };
     
     default:
@@ -147,7 +147,7 @@ export const getShareUrls = (creation: Creation) => {
   const encodedTitle = encodeURIComponent(baseContent.title);
   
   // Format content for Twitter/X
-  const twitterContent = formatForPlatform(creation, 'twitter');
+  const twitterContent = formatForPlatform(creation, 'twitter') as { text: string; url: string; hashtags: string };
   const encodedTwitterText = encodeURIComponent(twitterContent.text);
   
   // Format content for other platforms
@@ -156,7 +156,7 @@ export const getShareUrls = (creation: Creation) => {
   const telegramContent = formatForPlatform(creation, 'telegram');
   
   return {
-    twitter: `https://x.com/intent/tweet?text=${encodedTwitterText}`,
+    twitter: `https://x.com/intent/tweet?text=${encodedTwitterText}&url=${encodeURIComponent(twitterContent.url)}&hashtags=${twitterContent.hashtags}`,
     facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
     reddit: `https://reddit.com/submit?url=${encodedUrl}&title=${encodedTitle}`,
     linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}&title=${encodedTitle}&summary=${encodeURIComponent(linkedinContent.text)}`,
