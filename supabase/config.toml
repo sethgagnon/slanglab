@@ -35,3 +35,6 @@ verify_jwt = true
 
 [functions.monitor-shared-slang]
 verify_jwt = true
+
+[functions.update-leaderboards]
+verify_jwt = false

@@ -16,14 +16,17 @@ import {
   Loader2,
   CheckCircle,
   TrendingUp,
-  PlusCircle
+  PlusCircle,
+  Trophy
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SharePanel } from '@/components/SharePanel';
 import { SlangMonitoringDashboard } from '@/components/SlangMonitoringDashboard';
+import LeaderboardWidget from '@/components/LeaderboardWidget';
 import { useUsageStats } from '@/hooks/useUsageStats';
+import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt';
 import { ManualSlangForm } from '@/components/ManualSlangForm';
 import { ReportButton } from '@/components/ReportButton';
@@ -308,7 +311,7 @@ const SlangLab = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          <TabsList className={`grid w-full max-w-4xl mx-auto ${hasLabProAccess ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          <TabsList className={`grid w-full max-w-4xl mx-auto ${hasLabProAccess ? 'grid-cols-4' : 'grid-cols-3'}`}>
             <TabsTrigger value="ai-create" className="flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
               AI Create
@@ -323,6 +326,10 @@ const SlangLab = () => {
                 Slang Tracker
               </TabsTrigger>
             )}
+            <TabsTrigger value="leaderboard" className="flex items-center gap-2">
+              <Trophy className="h-4 w-4" />
+              Leaderboard
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="ai-create" className="space-y-8">
@@ -531,6 +538,14 @@ const SlangLab = () => {
               <SlangMonitoringDashboard />
             </TabsContent>
           )}
+          
+          <TabsContent value="leaderboard" className="space-y-6">
+            <LeaderboardWidget 
+              entries={[]}
+              title="Top Creators This Week"
+              showFullLeaderboard={true}
+            />
+          </TabsContent>
           
           {!hasLabProAccess && activeTab === "tracking" && (
             <div className="text-center p-8 space-y-4">

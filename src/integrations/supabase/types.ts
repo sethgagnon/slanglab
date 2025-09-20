@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          achievement_data: Json | null
+          achievement_type: string
+          created_at: string
+          earned_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          achievement_data?: Json | null
+          achievement_type: string
+          created_at?: string
+          earned_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          achievement_data?: Json | null
+          achievement_type?: string
+          created_at?: string
+          earned_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       anonymous_searches: {
         Row: {
           created_at: string
@@ -205,6 +232,51 @@ export type Database = {
         }
         Relationships: []
       }
+      creator_stats: {
+        Row: {
+          best_creation_id: string | null
+          created_at: string
+          current_streak: number
+          days_active: number
+          favorite_vibe: string | null
+          id: string
+          is_public: boolean
+          longest_streak: number
+          total_creations: number
+          total_viral_score: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          best_creation_id?: string | null
+          created_at?: string
+          current_streak?: number
+          days_active?: number
+          favorite_vibe?: string | null
+          id?: string
+          is_public?: boolean
+          longest_streak?: number
+          total_creations?: number
+          total_viral_score?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          best_creation_id?: string | null
+          created_at?: string
+          current_streak?: number
+          days_active?: number
+          favorite_vibe?: string | null
+          id?: string
+          is_public?: boolean
+          longest_streak?: number
+          total_creations?: number
+          total_viral_score?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       favorites: {
         Row: {
           created_at: string
@@ -233,6 +305,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      leaderboards: {
+        Row: {
+          created_at: string
+          id: string
+          period_end: string | null
+          period_start: string | null
+          period_type: string
+          platform_count: number
+          rank_position: number | null
+          spotted_count: number
+          total_votes: number
+          trending_count: number
+          updated_at: string
+          user_id: string
+          viral_score: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          period_end?: string | null
+          period_start?: string | null
+          period_type?: string
+          platform_count?: number
+          rank_position?: number | null
+          spotted_count?: number
+          total_votes?: number
+          trending_count?: number
+          updated_at?: string
+          user_id: string
+          viral_score?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          period_end?: string | null
+          period_start?: string | null
+          period_type?: string
+          platform_count?: number
+          rank_position?: number | null
+          spotted_count?: number
+          total_votes?: number
+          trending_count?: number
+          updated_at?: string
+          user_id?: string
+          viral_score?: number
+        }
+        Relationships: []
       }
       limits: {
         Row: {
