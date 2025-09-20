@@ -22,15 +22,18 @@ serve(async (req) => {
   }
 
   try {
-    const { vibe } = await req.json();
-    console.log('Generating slang for vibe:', vibe);
-
-    if (!vibe || !VIBES[vibe as keyof typeof VIBES]) {
+    // Enhanced input validation
+    const body = await req.json();
+    const { vibe } = body;
+    
+    if (!vibe || typeof vibe !== 'string' || !VIBES[vibe as keyof typeof VIBES]) {
       return new Response(JSON.stringify({ error: 'Invalid vibe specified' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    console.log('Generating slang for vibe:', vibe);
 
     const authHeader = req.headers.get('authorization');
     let userId = null;

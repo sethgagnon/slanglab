@@ -14,20 +14,42 @@ serve(async (req) => {
   }
 
   try {
-    const { term } = await req.json();
-    console.log('Looking up term:', term);
-
-    if (!term?.trim()) {
-      return new Response(JSON.stringify({ error: 'Term is required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
+    // Rate limiting for anonymous users
+    const clientIP = req.headers.get('x-forwarded-for')?.split(',')[0] || 
+                     req.headers.get('x-real-ip') || 'unknown';
+    
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // Check rate limit for anonymous users
+    const { data: rateLimitOk } = await supabase.rpc('check_edge_function_rate_limit', {
+      identifier: `lookup-term:${clientIP}`,
+      max_requests: 50,
+      window_minutes: 60
+    });
+    
+    if (!rateLimitOk) {
+      console.log('Rate limit exceeded for IP:', clientIP);
+      return new Response(
+        JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
+        { 
+          status: 429, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    const { term } = await req.json();
+    console.log('Looking up term:', term);
+
+    if (!term?.trim() || term.length > 100) {
+      return new Response(JSON.stringify({ error: 'Term is required and must be 100 characters or less' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Check usage limits
     const authHeader = req.headers.get('authorization');
