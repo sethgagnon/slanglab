@@ -5,7 +5,9 @@ export interface Creation {
   phrase: string;
   meaning: string;
   example: string;
-  vibe: string;
+  vibe?: string;
+  created_at: string;
+  creation_type: string;
 }
 
 export type SharePlatform = 

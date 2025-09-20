@@ -1,14 +1,41 @@
+# Robots.txt for SlangLab
+# Allow all crawlers to access public content
+
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /account
+Disallow: /history
+Disallow: /auth
+
+# Crawl-delay for politeness
+Crawl-delay: 1
+
+# Sitemap location
+Sitemap: https://slang-decoder-lab.lovable.app/sitemap.xml
+
+# Allow specific bots full access to public areas
 User-agent: Googlebot
 Allow: /
+Disallow: /admin
+Disallow: /account
+Disallow: /history
 
 User-agent: Bingbot
 Allow: /
+Disallow: /admin
+Disallow: /account
+Disallow: /history
 
+# Social media crawlers for rich previews
 User-agent: Twitterbot
 Allow: /
 
 User-agent: facebookexternalhit
 Allow: /
 
-User-agent: *
+User-agent: LinkedInBot
+Allow: /
+
+User-agent: WhatsApp
 Allow: /
