@@ -7,7 +7,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.generate-slang]
-verify_jwt = false
+verify_jwt = true
 
 [functions.create-manual-slang]
 verify_jwt = true
