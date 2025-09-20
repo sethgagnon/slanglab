@@ -419,6 +419,30 @@ export type Database = {
           },
         ]
       }
+      profile_access_rate_limit: {
+        Row: {
+          access_count: number
+          created_at: string
+          id: string
+          user_id: string
+          window_start: string
+        }
+        Insert: {
+          access_count?: number
+          created_at?: string
+          id?: string
+          user_id: string
+          window_start?: string
+        }
+        Update: {
+          access_count?: number
+          created_at?: string
+          id?: string
+          user_id?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           age_verified: boolean | null
