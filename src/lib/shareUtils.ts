@@ -146,19 +146,18 @@ export const getShareUrls = (creation: Creation) => {
   const encodedUrl = encodeURIComponent(baseContent.url);
   const encodedTitle = encodeURIComponent(baseContent.title);
   
-  // Format content for Twitter/X
+  // Format content for all platforms consistently
   const twitterContent = formatForPlatform(creation, 'twitter') as { text: string; url: string; hashtags: string };
-  const encodedTwitterText = encodeURIComponent(twitterContent.text);
-  
-  // Format content for other platforms
-  const linkedinContent = formatForPlatform(creation, 'linkedin');
-  const whatsappContent = formatForPlatform(creation, 'whatsapp');
-  const telegramContent = formatForPlatform(creation, 'telegram');
+  const facebookContent = formatForPlatform(creation, 'facebook') as { text: string; url: string };
+  const redditContent = formatForPlatform(creation, 'reddit') as { title: string; text: string };
+  const linkedinContent = formatForPlatform(creation, 'linkedin') as { text: string };
+  const whatsappContent = formatForPlatform(creation, 'whatsapp') as { text: string };
+  const telegramContent = formatForPlatform(creation, 'telegram') as { text: string };
   
   return {
-    twitter: `https://x.com/intent/tweet?text=${encodedTwitterText}&url=${encodeURIComponent(twitterContent.url)}&hashtags=${twitterContent.hashtags}`,
-    facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
-    reddit: `https://reddit.com/submit?url=${encodedUrl}&title=${encodedTitle}`,
+    twitter: `https://x.com/intent/tweet?text=${encodeURIComponent(twitterContent.text)}&url=${encodeURIComponent(twitterContent.url)}&hashtags=${twitterContent.hashtags}`,
+    facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodeURIComponent(facebookContent.text)}`,
+    reddit: `https://reddit.com/submit?url=${encodedUrl}&title=${encodeURIComponent(redditContent.title)}&text=${encodeURIComponent(redditContent.text)}`,
     linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}&title=${encodedTitle}&summary=${encodeURIComponent(linkedinContent.text)}`,
     whatsapp: `https://web.whatsapp.com/send?text=${encodeURIComponent(whatsappContent.text)}`,
     telegram: `https://t.me/share/url?url=${encodedUrl}&text=${encodeURIComponent(telegramContent.text)}`,
