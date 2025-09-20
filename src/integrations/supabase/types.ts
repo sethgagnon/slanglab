@@ -854,51 +854,7 @@ export type Database = {
       }
     }
     Views: {
-      secure_profiles: {
-        Row: {
-          age_verified: boolean | null
-          birth_date: string | null
-          created_at: string | null
-          email: string | null
-          id: string | null
-          name: string | null
-          parent_email: string | null
-          plan: string | null
-          role: string | null
-          safe_mode: boolean | null
-          subscription_status: string | null
-          user_id: string | null
-        }
-        Insert: {
-          age_verified?: boolean | null
-          birth_date?: never
-          created_at?: string | null
-          email?: never
-          id?: string | null
-          name?: never
-          parent_email?: never
-          plan?: string | null
-          role?: string | null
-          safe_mode?: boolean | null
-          subscription_status?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          age_verified?: boolean | null
-          birth_date?: never
-          created_at?: string | null
-          email?: never
-          id?: string | null
-          name?: never
-          parent_email?: never
-          plan?: string | null
-          role?: string | null
-          safe_mode?: boolean | null
-          subscription_status?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       anonymize_ip: {
