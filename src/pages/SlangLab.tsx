@@ -81,15 +81,12 @@ const SlangLab = () => {
       
       try {
         const { data, error } = await supabase
-          .from('user_profile_secure')
-          .select('plan, role, age_verified, birth_date, safe_mode')
-          .eq('user_id', user.id)
-          .single();
+          .rpc('get_secure_user_profile', { target_user_id: user.id });
 
-        if (!error && data) {
-          setUserProfile(data);
+        if (!error && data && data.length > 0) {
+          setUserProfile(data[0]);
           
-          if (!data.age_verified) {
+          if (!data[0].age_verified) {
             setShowAgeVerification(true);
           }
         }

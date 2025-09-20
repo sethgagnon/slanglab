@@ -896,26 +896,7 @@ export type Database = {
       }
     }
     Views: {
-      user_profile_secure: {
-        Row: {
-          age_verified: boolean | null
-          birth_date: string | null
-          created_at: string | null
-          current_period_end: string | null
-          email: string | null
-          id: string | null
-          name: string | null
-          parent_email: string | null
-          plan: string | null
-          role: string | null
-          safe_mode: boolean | null
-          stripe_customer_id: string | null
-          subscription_id: string | null
-          subscription_status: string | null
-          user_id: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       anonymize_ip: {
@@ -937,6 +918,26 @@ export type Database = {
       cleanup_old_data: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      get_secure_user_profile: {
+        Args: { target_user_id: string }
+        Returns: {
+          age_verified: boolean
+          birth_date: string
+          created_at: string
+          current_period_end: string
+          email: string
+          id: string
+          name: string
+          parent_email: string
+          plan: string
+          role: string
+          safe_mode: boolean
+          stripe_customer_id: string
+          subscription_id: string
+          subscription_status: string
+          user_id: string
+        }[]
       }
       get_user_payment_info: {
         Args: { target_user_id: string }
@@ -967,6 +968,10 @@ export type Database = {
       is_profile_owner: {
         Args: { profile_user_id: string }
         Returns: boolean
+      }
+      log_sensitive_data_access: {
+        Args: { action_type: string; record_id?: string; table_name: string }
+        Returns: undefined
       }
       mask_sensitive_data: {
         Args: { input_text: string }
