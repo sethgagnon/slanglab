@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -49,7 +50,9 @@ const DEMO_TERMS = [{
 }];
 const Landing = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
+  const [isNavigating, setIsNavigating] = useState(false);
   const {
     trendingTerms,
     lastUpdated
@@ -74,6 +77,25 @@ const Landing = () => {
       handleSearch();
     }
   };
+
+  const handleSignInClick = async () => {
+    console.log('Sign In button clicked');
+    setIsNavigating(true);
+    
+    try {
+      navigate('/auth');
+      console.log('Navigation to /auth successful');
+    } catch (error) {
+      console.error('Navigation failed:', error);
+      toast({
+        title: "Navigation Error",
+        description: "Failed to navigate to sign in page. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsNavigating(false);
+    }
+  };
   
   const exampleTerms = ['mid', 'rizz', 'sus', 'bet'];
   
@@ -86,8 +108,20 @@ const Landing = () => {
             <h1 className="text-xl font-bold">SlangLab</h1>
           </div>
           <div className="flex items-center space-x-2">
-            <Button asChild variant="outline">
-              <Link to="/auth">Sign In</Link>
+            <Button 
+              variant="outline" 
+              onClick={handleSignInClick}
+              disabled={isNavigating}
+              className="relative"
+            >
+              {isNavigating ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                  Signing In...
+                </>
+              ) : (
+                'Sign In'
+              )}
             </Button>
             <Button asChild>
               <Link to="/lookup">Start Decoding</Link>
