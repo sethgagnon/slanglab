@@ -895,6 +895,10 @@ export type Database = {
       }
     }
     Functions: {
+      check_profile_access_rate_limit: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       get_week_start: {
         Args: { input_date?: string }
         Returns: string
