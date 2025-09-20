@@ -88,13 +88,13 @@ export const SharePanel: React.FC<SharePanelProps> = ({ creation, userId, classN
         break;
 
       case 'copy_link':
-        const shareUrl = generateShareContent(creation).url;
-        const success = await copyToClipboard(shareUrl);
+        const shareContent = generateShareContent(creation);
+        const success = await copyToClipboard(shareContent.text);
         if (success) {
-          toast({ title: 'Link copied to clipboard!' });
+          toast({ title: 'Text copied to clipboard!' });
         } else {
           toast({ 
-            title: 'Failed to copy link',
+            title: 'Failed to copy text',
             variant: 'destructive'
           });
         }
@@ -232,7 +232,7 @@ export const SharePanel: React.FC<SharePanelProps> = ({ creation, userId, classN
   platformButtons.push({
     platform: 'copy_link' as SharePlatform,
     icon: Copy,
-    label: 'Copy Link',
+    label: 'Copy Text',
     color: 'hover:bg-slate-100'
   });
 

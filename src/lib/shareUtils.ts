@@ -34,13 +34,13 @@ export const detectMobile = (): boolean => {
 
 export const generateShareContent = (creation: Creation) => {
   const baseUrl = window.location.origin;
-  const shareUrl = `${baseUrl}/slang/${creation.id}`;
+  const shareUrl = baseUrl; // Use main website instead of individual creation URL
   
   const content = {
     title: `Check out this AI-generated slang: "${creation.phrase}"`,
-    text: `"${creation.phrase}" means ${creation.meaning}. Example: "${creation.example}" #SlangLab #AISlang #${creation.vibe}`,
+    text: `"${creation.phrase}" means ${creation.meaning}. Example: "${creation.example}" Create & Track your own slang & lingo at SlangLab. See if you start the next slang trend! #SlangLab #AISlang`,
     url: shareUrl,
-    hashtags: ['SlangLab', 'AISlang', creation.vibe],
+    hashtags: ['SlangLab', 'AISlang'],
   };
 
   return content;
@@ -66,7 +66,7 @@ export const formatForPlatform = (creation: Creation, platform: SharePlatform) =
     case 'snapchat':
     case 'tiktok':
       return {
-        caption: `${content.text}\n\nGenerated with SlangLab 🚀\n${content.url}`,
+        caption: `${content.text} 🚀\n${content.url}`,
       };
     
     case 'reddit':
