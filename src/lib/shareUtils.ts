@@ -48,17 +48,18 @@ export const generateShareContent = (creation: Creation) => {
 
 export const formatForPlatform = (creation: Creation, platform: SharePlatform) => {
   const content = generateShareContent(creation);
+  const standardText = `${content.text} ${content.url}`;
   
   switch (platform) {
     case 'twitter':
       return {
-        text: `${content.text} ${content.url}`,
+        text: standardText,
         hashtags: content.hashtags.join(','),
       };
     
     case 'facebook':
       return {
-        text: content.text,
+        text: standardText,
         url: content.url,
       };
     
@@ -66,24 +67,20 @@ export const formatForPlatform = (creation: Creation, platform: SharePlatform) =
     case 'snapchat':
     case 'tiktok':
       return {
-        caption: `${content.text} 🚀\n${content.url}`,
+        caption: standardText,
       };
     
     case 'reddit':
       return {
         title: content.title,
-        text: `${content.text}\n\n${content.url}`,
+        text: standardText,
       };
     
     case 'linkedin':
-      return {
-        text: `${content.text}\n\n${content.url}`,
-      };
-    
     case 'whatsapp':
     case 'telegram':
       return {
-        text: `${content.text}\n\n${content.url}`,
+        text: standardText,
       };
     
     default:
@@ -149,12 +146,9 @@ export const getShareUrls = (creation: Creation) => {
   const encodedUrl = encodeURIComponent(baseContent.url);
   const encodedTitle = encodeURIComponent(baseContent.title);
   
-  // Format content for Twitter/X with character limit consideration
+  // Format content for Twitter/X
   const twitterContent = formatForPlatform(creation, 'twitter');
-  const twitterText = twitterContent.text.length > 250 ? 
-    `"${creation.phrase}" means ${creation.meaning}. Check it out!` : 
-    twitterContent.text;
-  const encodedTwitterText = encodeURIComponent(twitterText);
+  const encodedTwitterText = encodeURIComponent(twitterContent.text);
   
   // Format content for other platforms
   const linkedinContent = formatForPlatform(creation, 'linkedin');
