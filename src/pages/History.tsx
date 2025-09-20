@@ -18,13 +18,25 @@ import {
   Clock,
   Zap,
   PlusCircle,
-  Share2
+  Share2,
+  Trash2
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useCreations } from '@/hooks/useCreations';
 import { SharePanel } from '@/components/SharePanel';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface HistoryItem {
   id: string;
@@ -54,7 +66,7 @@ const History = () => {
   const [favorites, setFavorites] = useState<HistoryItem[]>([]);
   const { user, loading: authLoading, signOut } = useAuth();
   const { toast } = useToast();
-  const { creations, loading: creationsLoading, refresh: refreshCreations } = useCreations();
+  const { creations, loading: creationsLoading, refresh: refreshCreations, deleteCreation } = useCreations();
 
   useEffect(() => {
     if (user) {
@@ -148,6 +160,21 @@ const History = () => {
     }
   };
 
+  const handleDeleteCreation = async (creationId: string) => {
+    try {
+      await deleteCreation(creationId);
+      toast({
+        title: "Deleted",
+        description: "Creation deleted successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Delete failed",
+        description: error.message || "Unable to delete creation.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const getConfidenceColor = (confidence: string) => {
     switch (confidence) {
@@ -557,6 +584,30 @@ const History = () => {
                             userId={user.id}
                             className="ml-4"
                           />
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Creation</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete "{creation.phrase}"? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteCreation(creation.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </div>
                     </CardContent>
