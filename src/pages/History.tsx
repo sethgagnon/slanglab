@@ -15,7 +15,10 @@ import {
   LogOut,
   StarOff,
   Calendar,
-  Clock
+  Clock,
+  Zap,
+  PlusCircle,
+  Share2
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,18 +34,30 @@ interface HistoryItem {
   is_favorite: boolean;
 }
 
+interface Creation {
+  id: string;
+  phrase: string;
+  meaning: string;
+  example: string;
+  creation_type: string;
+  vibe?: string;
+  created_at: string;
+}
+
 const History = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [toneFilter, setToneFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [lookups, setLookups] = useState<HistoryItem[]>([]);
   const [favorites, setFavorites] = useState<HistoryItem[]>([]);
+  const [creations, setCreations] = useState<Creation[]>([]);
   const { user, signOut } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
     if (user) {
       loadHistory();
+      loadCreations();
     }
   }, [user]);
 
@@ -127,6 +142,29 @@ const History = () => {
       toast({
         title: "Update failed",
         description: error.message || "Unable to update favorite.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const loadCreations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('creations')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      setCreations(data || []);
+    } catch (error: any) {
+      console.error('Error loading creations:', error);
+      toast({
+        title: "Load failed",
+        description: error.message || "Unable to load creations.",
         variant: "destructive",
       });
     }
@@ -293,9 +331,10 @@ const History = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="history" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="history">Recent Lookups</TabsTrigger>
             <TabsTrigger value="favorites">Favorites</TabsTrigger>
+            <TabsTrigger value="creations">My Creations</TabsTrigger>
           </TabsList>
 
           <TabsContent value="history" className="space-y-4">

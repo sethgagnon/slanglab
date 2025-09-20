@@ -74,7 +74,7 @@ const SlangLab = () => {
 
   const hasLabProAccess = isAdmin || plan === 'LabPro';
 
-  // Fetch user profile and check age verification
+  // Fetch user profile and check age verification, and load existing creations
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (!user) return;
@@ -98,7 +98,31 @@ const SlangLab = () => {
       }
     };
 
+    const loadExistingCreations = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('creations')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (!error && data) {
+          const mappedCreations = data.map(item => ({
+            ...item,
+            votes: 0 // Default votes for now
+          }));
+          setCreations(mappedCreations);
+        }
+      } catch (error) {
+        console.error('Error loading existing creations:', error);
+      }
+    };
+
     fetchUserProfile();
+    loadExistingCreations();
   }, [user]);
 
   const handleAgeVerificationComplete = (isMinor: boolean) => {

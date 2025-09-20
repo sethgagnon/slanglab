@@ -89,7 +89,25 @@ export const ManualSlangForm: React.FC<ManualSlangFormProps> = ({
 
       toast({
         title: "Success!",
-        description: "Your slang entry has been created successfully",
+        description: (
+          <div className="space-y-2">
+            <p>Your slang entry has been created successfully!</p>
+            <div className="flex gap-2">
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => {
+                  navigator.clipboard.writeText(
+                    `${phrase}: ${meaning}\nExample: "${example}"`
+                  );
+                  toast({ title: "Copied!", description: "Creation copied to clipboard" });
+                }}
+              >
+                Share Now
+              </Button>
+            </div>
+          </div>
+        ),
       });
 
       // Reset form
