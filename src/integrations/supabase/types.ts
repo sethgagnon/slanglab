@@ -547,6 +547,45 @@ export type Database = {
         }
         Relationships: []
       }
+      security_audit_log: {
+        Row: {
+          action: string
+          error_message: string | null
+          id: string
+          ip_address: unknown | null
+          record_id: string | null
+          success: boolean
+          table_name: string
+          timestamp: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          error_message?: string | null
+          id?: string
+          ip_address?: unknown | null
+          record_id?: string | null
+          success?: boolean
+          table_name: string
+          timestamp?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: unknown | null
+          record_id?: string | null
+          success?: boolean
+          table_name?: string
+          timestamp?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       senses: {
         Row: {
           confidence: string
