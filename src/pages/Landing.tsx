@@ -123,9 +123,6 @@ const Landing = () => {
                 'Sign In'
               )}
             </Button>
-            <Button asChild>
-              <Link to="/lookup">Start Decoding</Link>
-            </Button>
           </div>
         </div>
       </header>
