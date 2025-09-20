@@ -143,17 +143,28 @@ export const openApp = (deepLink: string): void => {
 };
 
 export const getShareUrls = (creation: Creation) => {
-  const content = formatForPlatform(creation, 'twitter');
-  const encodedText = encodeURIComponent(content.text);
-  const encodedUrl = encodeURIComponent(generateShareContent(creation).url);
-  const encodedTitle = encodeURIComponent(generateShareContent(creation).title);
+  const baseContent = generateShareContent(creation);
+  const encodedUrl = encodeURIComponent(baseContent.url);
+  const encodedTitle = encodeURIComponent(baseContent.title);
+  
+  // Format content for Twitter/X with character limit consideration
+  const twitterContent = formatForPlatform(creation, 'twitter');
+  const twitterText = twitterContent.text.length > 250 ? 
+    `"${creation.phrase}" means ${creation.meaning}. Check it out!` : 
+    twitterContent.text;
+  const encodedTwitterText = encodeURIComponent(twitterText);
+  
+  // Format content for other platforms
+  const linkedinContent = formatForPlatform(creation, 'linkedin');
+  const whatsappContent = formatForPlatform(creation, 'whatsapp');
+  const telegramContent = formatForPlatform(creation, 'telegram');
   
   return {
-    twitter: `https://twitter.com/intent/tweet?text=${encodedText}`,
-    facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+    twitter: `https://x.com/intent/tweet?text=${encodedTwitterText}`,
+    facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodeURIComponent(baseContent.text)}`,
     reddit: `https://reddit.com/submit?url=${encodedUrl}&title=${encodedTitle}`,
-    linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
-    whatsapp: `https://wa.me/?text=${encodedText}`,
-    telegram: `https://t.me/share/url?url=${encodedUrl}&text=${encodeURIComponent(formatForPlatform(creation, 'telegram').text)}`,
+    linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}&title=${encodedTitle}&summary=${encodeURIComponent(linkedinContent.text)}`,
+    whatsapp: `https://web.whatsapp.com/send?text=${encodeURIComponent(whatsappContent.text)}`,
+    telegram: `https://t.me/share/url?url=${encodedUrl}&text=${encodeURIComponent(telegramContent.text)}`,
   };
 };

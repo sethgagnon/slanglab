@@ -12,6 +12,7 @@ import History from "./pages/History";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
 import Leaderboard from "./pages/Leaderboard";
+import SlangDetail from "./pages/SlangDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/account" element={<Account />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route path="/slang/:id" element={<SlangDetail />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
