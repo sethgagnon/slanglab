@@ -521,7 +521,9 @@ const SlangLab = () => {
                                   phrase: creation.phrase,
                                   meaning: creation.meaning,
                                   example: creation.example,
-                                  vibe: selectedVibe
+                                  vibe: selectedVibe,
+                                  created_at: new Date().toISOString(),
+                                  creation_type: 'ai'
                                 }}
                                 userId={user.id}
                               />

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { SEOHead, createWebsiteSchema } from '@/components/SEOHead';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -115,7 +116,14 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <>
+      <SEOHead
+        title="Sign In - SlangLab"
+        description="Join SlangLab to save favorites, track your slang lookup history, and create viral slang terms with our AI-powered tools."
+        keywords="sign in, login, account, slang creator account, slang tracker, user registration"
+        structuredData={createWebsiteSchema()}
+      />
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
@@ -232,6 +240,7 @@ const Auth = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

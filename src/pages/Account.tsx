@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { SEOHead, createWebsiteSchema } from '@/components/SEOHead';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -67,7 +68,14 @@ const Account = () => {
       console.error('Error creating checkout:', error);
     }
   };
-  return <div className="min-h-screen bg-background">
+  return <>
+    <SEOHead
+      title="Account Settings - SlangLab"
+      description="Manage your SlangLab account, view usage statistics, upgrade your plan, and export your data."
+      keywords="account settings, slang creator profile, subscription management, usage stats"
+      structuredData={createWebsiteSchema()}
+    />
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
@@ -434,6 +442,7 @@ const Account = () => {
             </Card>}
         </div>
       </div>
-    </div>;
+    </div>
+  </>;
 };
 export default Account;

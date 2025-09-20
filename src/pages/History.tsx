@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { SEOHead, createWebsiteSchema } from '@/components/SEOHead';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -311,7 +312,14 @@ const History = () => {
   const filteredCreations = filterCreations(creations);
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      <SEOHead
+        title="History & Favorites - SlangLab"
+        description="View your slang lookup history, manage favorites, and track your created slang terms. Organize your language discoveries."
+        keywords="slang history, favorites, user creations, slang tracker, language discoveries"
+        structuredData={createWebsiteSchema()}
+      />
+      <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
@@ -619,6 +627,7 @@ const History = () => {
         </Tabs>
       </div>
     </div>
+    </>
   );
 };
 

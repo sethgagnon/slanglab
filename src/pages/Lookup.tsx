@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { SEOHead, createWebsiteSchema } from '@/components/SEOHead';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -212,7 +213,14 @@ const Lookup = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      <SEOHead
+        title={query ? `${query} - SlangLab Lookup` : 'Slang Lookup - SlangLab'}
+        description={definition ? `Definition of "${query}": ${definition.meaning}` : 'Look up slang terms and get evidence-based definitions with confidence scores and safety labels.'}
+        keywords={`slang lookup, ${query || 'slang terms'}, slang dictionary, modern slang, teen language`}
+        structuredData={createWebsiteSchema()}
+      />
+      <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
@@ -434,6 +442,7 @@ const Lookup = () => {
         )}
       </div>
     </div>
+    </>
   );
 };
 

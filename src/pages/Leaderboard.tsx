@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { SEOHead, createWebsiteSchema } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -160,7 +161,14 @@ const Leaderboard: React.FC = () => {
   }
 
   return (
-    <div className="container max-w-4xl mx-auto p-6 space-y-6">
+    <>
+      <SEOHead
+        title="Creator Leaderboard - SlangLab"
+        description="Discover the top slang creators ranked by viral score. See trending slang terms and their creators making waves across social platforms."
+        keywords="slang leaderboard, viral slang, trending creators, slang creators, social media trends, viral terms"
+        structuredData={createWebsiteSchema()}
+      />
+      <div className="container max-w-4xl mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -302,6 +310,7 @@ const Leaderboard: React.FC = () => {
         </TabsContent>
       </Tabs>
     </div>
+    </>
   );
 };
 
