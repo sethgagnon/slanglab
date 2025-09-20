@@ -574,6 +574,72 @@ export type Database = {
         }
         Relationships: []
       }
+      secure_payment_info: {
+        Row: {
+          created_at: string
+          current_period_end: string | null
+          id: string
+          stripe_customer_id: string | null
+          subscription_id: string | null
+          subscription_status: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          stripe_customer_id?: string | null
+          subscription_id?: string | null
+          subscription_status?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          stripe_customer_id?: string | null
+          subscription_id?: string | null
+          subscription_status?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      secure_personal_info: {
+        Row: {
+          age_verified: boolean | null
+          created_at: string
+          encrypted_birth_date: string | null
+          encrypted_parent_email: string | null
+          id: string
+          safe_mode: boolean | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          age_verified?: boolean | null
+          created_at?: string
+          encrypted_birth_date?: string | null
+          encrypted_parent_email?: string | null
+          id?: string
+          safe_mode?: boolean | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          age_verified?: boolean | null
+          created_at?: string
+          encrypted_birth_date?: string | null
+          encrypted_parent_email?: string | null
+          id?: string
+          safe_mode?: boolean | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       security_audit_log: {
         Row: {
           action: string
@@ -876,6 +942,14 @@ export type Database = {
       cleanup_old_data: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      decrypt_pii: {
+        Args: { encrypted_data: string }
+        Returns: string
+      }
+      encrypt_pii: {
+        Args: { data: string }
+        Returns: string
       }
       get_week_start: {
         Args: { input_date?: string }
