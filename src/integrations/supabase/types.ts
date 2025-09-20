@@ -610,30 +610,30 @@ export type Database = {
       secure_personal_info: {
         Row: {
           age_verified: boolean | null
+          birth_date: string | null
           created_at: string
-          encrypted_birth_date: string | null
-          encrypted_parent_email: string | null
           id: string
+          parent_email: string | null
           safe_mode: boolean | null
           updated_at: string
           user_id: string
         }
         Insert: {
           age_verified?: boolean | null
+          birth_date?: string | null
           created_at?: string
-          encrypted_birth_date?: string | null
-          encrypted_parent_email?: string | null
           id?: string
+          parent_email?: string | null
           safe_mode?: boolean | null
           updated_at?: string
           user_id: string
         }
         Update: {
           age_verified?: boolean | null
+          birth_date?: string | null
           created_at?: string
-          encrypted_birth_date?: string | null
-          encrypted_parent_email?: string | null
           id?: string
+          parent_email?: string | null
           safe_mode?: boolean | null
           updated_at?: string
           user_id?: string
@@ -920,7 +920,26 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      user_profile_secure: {
+        Row: {
+          age_verified: boolean | null
+          birth_date: string | null
+          created_at: string | null
+          current_period_end: string | null
+          email: string | null
+          id: string | null
+          name: string | null
+          parent_email: string | null
+          plan: string | null
+          role: string | null
+          safe_mode: boolean | null
+          stripe_customer_id: string | null
+          subscription_id: string | null
+          subscription_status: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       anonymize_ip: {
