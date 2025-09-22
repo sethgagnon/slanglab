@@ -65,6 +65,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ShareTrackModal } from '@/components/ShareTrackModal';
 import { FeatureDisclosure } from '@/components/ui/feature-disclosure';
+import { SmartSegmentationCta } from '@/components/ui/smart-segmentation-cta';
 import CreatorStats from '@/components/CreatorStats';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -658,6 +659,17 @@ const Account = () => {
                     </div>
                   </CardContent>
                 </Card>
+              )}
+              
+              {/* Smart Segmentation CTA */}
+              {usage.plan === 'Free' && (
+                <div className="mt-6">
+                  <SmartSegmentationCta 
+                    usage={usage}
+                    accountAge={user?.created_at ? Math.floor((Date.now() - new Date(user.created_at).getTime()) / (1000 * 60 * 60 * 24)) : 30}
+                    variant="card"
+                  />
+                </div>
               )}
             </TabsContent>
 

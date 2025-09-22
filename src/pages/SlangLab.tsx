@@ -33,6 +33,8 @@ import { ApproachingLimitBanner } from '@/components/ui/approaching-limit-banner
 import { SmartUpgradeCta } from '@/components/ui/smart-upgrade-cta';
 import { SoftGatePrompt } from '@/components/ui/soft-gate-prompt';
 import { FeatureDisclosure } from '@/components/ui/feature-disclosure';
+import { TimeBasedPrompt } from '@/components/ui/time-based-prompt';
+import { SmartSegmentationCta } from '@/components/ui/smart-segmentation-cta';
 import { ManualSlangForm } from '@/components/ManualSlangForm';
 import { ReportButton } from '@/components/ReportButton';
 import { AgeVerificationModal } from '@/components/AgeVerificationModal';
@@ -359,6 +361,11 @@ const SlangLab = () => {
           </p>
         </div>
 
+        {/* Time-Based Offers */}
+        <div className="max-w-4xl mx-auto mb-6">
+          <TimeBasedPrompt plan={plan} variant="banner" />
+        </div>
+
         {/* Usage Alerts & Soft Gates */}
         <div className="max-w-4xl mx-auto mb-6 space-y-3">
           {/* Soft gates (show before hitting limits) */}
@@ -398,6 +405,24 @@ const SlangLab = () => {
             plan={plan}
           />
         </div>
+
+        {/* Smart Segmentation CTA */}
+        {plan === 'Free' && (
+          <div className="max-w-4xl mx-auto mb-6">
+            <SmartSegmentationCta 
+              usage={{
+                searchesUsed,
+                searchesLimit,
+                aiCreationsUsed,
+                aiCreationsLimit,
+                manualCreationsUsed,
+                manualCreationsLimit,
+                plan
+              }}
+              variant="inline"
+            />
+          </div>
+        )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
           <TabsList className={`grid w-full max-w-4xl mx-auto ${hasLabProAccess ? 'grid-cols-4' : 'grid-cols-3'}`}>

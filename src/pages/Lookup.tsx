@@ -24,6 +24,7 @@ import { useToast } from '@/hooks/use-toast';
 import { UsageDisplay } from '@/components/ui/usage-display';
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt';
 import { SoftGatePrompt } from '@/components/ui/soft-gate-prompt';
+import { TimeBasedPrompt } from '@/components/ui/time-based-prompt';
 import { useUsageStats } from '@/hooks/useUsageStats';
 
 interface DefinitionData {
@@ -282,6 +283,11 @@ const Lookup = () => {
             />
           </div>
         )}
+
+        {/* Time-Based Offers */}
+        <div className="mx-auto max-w-2xl mb-6">
+          <TimeBasedPrompt plan={usageStats.plan} variant="minimal" />
+        </div>
 
         {/* Soft Gate for Search Limits */}
         {user && (
