@@ -31,6 +31,8 @@ import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt';
 import { ApproachingLimitBanner } from '@/components/ui/approaching-limit-banner';
 import { SmartUpgradeCta } from '@/components/ui/smart-upgrade-cta';
+import { SoftGatePrompt } from '@/components/ui/soft-gate-prompt';
+import { FeatureDisclosure } from '@/components/ui/feature-disclosure';
 import { ManualSlangForm } from '@/components/ManualSlangForm';
 import { ReportButton } from '@/components/ReportButton';
 import { AgeVerificationModal } from '@/components/AgeVerificationModal';
@@ -357,8 +359,26 @@ const SlangLab = () => {
           </p>
         </div>
 
-        {/* Usage Alerts */}
+        {/* Usage Alerts & Soft Gates */}
         <div className="max-w-4xl mx-auto mb-6 space-y-3">
+          {/* Soft gates (show before hitting limits) */}
+          <SoftGatePrompt 
+            type="search-warning"
+            remaining={searchesLimit - searchesUsed}
+            plan={plan}
+          />
+          <SoftGatePrompt 
+            type="ai-creation-warning"
+            remaining={aiCreationsLimit - aiCreationsUsed}
+            plan={plan}
+          />
+          <SoftGatePrompt 
+            type="manual-creation-warning"
+            remaining={manualCreationsLimit - manualCreationsUsed}
+            plan={plan}
+          />
+          
+          {/* Hard limit banners (show when approaching/at limits) */}
           <ApproachingLimitBanner 
             usedCount={searchesUsed} 
             totalLimit={searchesLimit} 

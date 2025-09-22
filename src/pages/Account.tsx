@@ -64,6 +64,7 @@ import { useTracking } from '@/hooks/useTracking';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ShareTrackModal } from '@/components/ShareTrackModal';
+import { FeatureDisclosure } from '@/components/ui/feature-disclosure';
 import CreatorStats from '@/components/CreatorStats';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -715,29 +716,19 @@ const Account = () => {
                           </Link>
                         </Button>
                         
-                        {/* Feature discovery upsell */}
-                        {usage.plan === 'Free' && (
-                          <div className="max-w-md mx-auto">
-                            <div className="p-4 border rounded-lg bg-muted/30">
-                              <div className="flex items-center gap-2 mb-2">
-                                <TrendingUp className="w-4 h-4 text-primary" />
-                                <span className="text-sm font-medium">Track Your Viral Slang</span>
-                              </div>
-                              <p className="text-xs text-muted-foreground mb-3">
-                                See how your creations spread across Reddit, TikTok, and more with LabPro tracking
-                              </p>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="w-full"
-                                onClick={() => handleUpgrade('price_1SADmrDt8zpU0lE0PKZLjhJA')}
-                              >
-                                <Users className="w-3 h-3 mr-1" />
-                                Unlock Tracking - $3.99/mo
-                              </Button>
-                            </div>
-                          </div>
-                        )}
+                        {/* Progressive feature disclosure */}
+                        <div className="max-w-lg mx-auto space-y-4">
+                          <FeatureDisclosure 
+                            feature="tracking" 
+                            plan={usage.plan} 
+                            variant="inline"
+                          />
+                          <FeatureDisclosure 
+                            feature="analytics" 
+                            plan={usage.plan} 
+                            variant="minimal"
+                          />
+                        </div>
                       </div>
                     </div>
                   )}

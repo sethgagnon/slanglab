@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Crown, Users, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { SocialProofBadge } from '@/components/ui/social-proof-badge';
 
 interface UpgradePromptProps {
   type: 'search-limit' | 'creation-limit' | 'signup-required';
@@ -21,9 +22,12 @@ export const UpgradePrompt: React.FC<UpgradePromptProps> = ({
           title: 'Free Search Used',
           description: 'You\'ve used your 1 free search. Create an account to get 1 daily search plus creation features!',
           action: (
-            <Button asChild className="w-full">
-              <Link to="/auth">Create Free Account</Link>
-            </Button>
+            <div className="space-y-3">
+              <SocialProofBadge type="user-count" size="sm" className="justify-center w-full" />
+              <Button asChild className="w-full">
+                <Link to="/auth">Create Free Account</Link>
+              </Button>
+            </div>
           )
         };
       
@@ -33,6 +37,10 @@ export const UpgradePrompt: React.FC<UpgradePromptProps> = ({
           description: 'You\'ve used your daily search. Upgrade for unlimited access!',
           action: (
             <div className="space-y-3">
+              <div className="flex justify-center">
+                <SocialProofBadge type="trending" size="sm" />
+              </div>
+              
               <div className="grid gap-3">
                 <div className="border rounded-lg p-3">
                   <div className="flex items-center justify-between mb-2">
@@ -41,7 +49,8 @@ export const UpgradePrompt: React.FC<UpgradePromptProps> = ({
                       <Zap className="w-3 h-3 mr-1" />$1.99/mo
                     </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-3">Unlimited searches + 3 AI creations/week</p>
+                  <p className="text-sm text-muted-foreground mb-2">Unlimited searches + 3 AI creations/week</p>
+                  <SocialProofBadge type="viral-rate" size="sm" variant="secondary" className="mb-3" />
                   <Button className="w-full" size="sm" asChild>
                     <Link to="/account">Upgrade to SearchPro</Link>
                   </Button>
@@ -54,7 +63,8 @@ export const UpgradePrompt: React.FC<UpgradePromptProps> = ({
                       <Crown className="w-3 h-3 mr-1" />$3.99/mo
                     </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-3">Unlimited searches + 2 AI creations/day</p>
+                  <p className="text-sm text-muted-foreground mb-2">Unlimited searches + 2 AI creations/day</p>
+                  <SocialProofBadge type="viral-rate" plan="LabPro" size="sm" variant="secondary" className="mb-3" />
                   <Button className="w-full" size="sm" variant="outline" asChild>
                     <Link to="/account">Upgrade to LabPro</Link>
                   </Button>
@@ -70,9 +80,15 @@ export const UpgradePrompt: React.FC<UpgradePromptProps> = ({
           description: 'You\'ve used your creation allowance. Upgrade for more AI creations and unlimited manual creations!',
           action: (
             <div className="space-y-3">
+              <div className="flex justify-center">
+                <SocialProofBadge type="success-rate" size="sm" />
+              </div>
               <Button asChild className="w-full">
                 <Link to="/account">Upgrade Your Plan</Link>
               </Button>
+              <div className="text-center">
+                <SocialProofBadge type="satisfaction" size="sm" variant="secondary" />
+              </div>
             </div>
           )
         };

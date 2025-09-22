@@ -23,6 +23,7 @@ import { getSourceLogo, getSourceName } from '@/lib/sourceLogos';
 import { useToast } from '@/hooks/use-toast';
 import { UsageDisplay } from '@/components/ui/usage-display';
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt';
+import { SoftGatePrompt } from '@/components/ui/soft-gate-prompt';
 import { useUsageStats } from '@/hooks/useUsageStats';
 
 interface DefinitionData {
@@ -278,6 +279,17 @@ const Lookup = () => {
               manualCreationsLimit={usageStats.manualCreationsLimit}
               plan={usageStats.plan}
               isAdmin={usageStats.isAdmin}
+            />
+          </div>
+        )}
+
+        {/* Soft Gate for Search Limits */}
+        {user && (
+          <div className="mx-auto max-w-2xl mb-6">
+            <SoftGatePrompt 
+              type="search-warning"
+              remaining={usageStats.searchesLimit - usageStats.searchesUsed}
+              plan={usageStats.plan}
             />
           </div>
         )}
