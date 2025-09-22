@@ -43,7 +43,10 @@ const AdminSources = () => {
 
   useEffect(() => {
     const checkAuth = async () => {
+      console.log('AdminSources: Starting auth check', { user: user?.id });
+      
       if (!user) {
+        console.log('AdminSources: No user found');
         setLoading(false);
         return;
       }
@@ -58,13 +61,19 @@ const AdminSources = () => {
   const checkAdminStatus = async () => {
     if (!user) return;
     
-    const { data: profile } = await supabase
+    console.log('AdminSources: Checking admin status for user:', user.id);
+    
+    const { data: profile, error } = await supabase
       .from('profiles')
       .select('role')
       .eq('user_id', user.id)
       .single();
     
-    setIsAdmin(profile?.role === 'admin');
+    console.log('AdminSources: Profile query result', { profile, error });
+    
+    const adminStatus = profile?.role === 'admin';
+    console.log('AdminSources: Setting isAdmin to:', adminStatus);
+    setIsAdmin(adminStatus);
   };
 
   const loadSources = async () => {
