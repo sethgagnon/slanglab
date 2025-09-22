@@ -1497,6 +1497,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      is_authenticated_user: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       is_profile_owner: {
         Args: { profile_user_id: string }
         Returns: boolean
