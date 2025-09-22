@@ -328,6 +328,33 @@ export type Database = {
         }
         Relationships: []
       }
+      digest_state: {
+        Row: {
+          created_at: string
+          id: string
+          last_weekly_digest_sent: string | null
+          updated_at: string
+          user_id: string
+          week_start_date: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_weekly_digest_sent?: string | null
+          updated_at?: string
+          user_id: string
+          week_start_date: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_weekly_digest_sent?: string | null
+          updated_at?: string
+          user_id?: string
+          week_start_date?: string
+        }
+        Relationships: []
+      }
       favorites: {
         Row: {
           created_at: string
@@ -356,6 +383,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      first_sighting_notifications: {
+        Row: {
+          id: string
+          sent_at: string
+          sighting_id: string
+          term_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          sent_at?: string
+          sighting_id: string
+          term_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          sent_at?: string
+          sighting_id?: string
+          term_id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       leaderboards: {
         Row: {
@@ -469,6 +520,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          email_enabled: boolean
+          first_sighting_enabled: boolean
+          id: string
+          unsubscribe_token: string | null
+          updated_at: string
+          user_id: string
+          weekly_digest_enabled: boolean
+        }
+        Insert: {
+          created_at?: string
+          email_enabled?: boolean
+          first_sighting_enabled?: boolean
+          id?: string
+          unsubscribe_token?: string | null
+          updated_at?: string
+          user_id: string
+          weekly_digest_enabled?: boolean
+        }
+        Update: {
+          created_at?: string
+          email_enabled?: boolean
+          first_sighting_enabled?: boolean
+          id?: string
+          unsubscribe_token?: string | null
+          updated_at?: string
+          user_id?: string
+          weekly_digest_enabled?: boolean
+        }
+        Relationships: []
       }
       profile_access_rate_limit: {
         Row: {
