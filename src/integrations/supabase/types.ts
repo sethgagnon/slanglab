@@ -748,22 +748,55 @@ export type Database = {
       }
       source_rules: {
         Row: {
+          config: Json | null
           created_at: string
           domain: string
+          domains_allowlist: Json | null
+          domains_blocklist: Json | null
+          enabled: boolean | null
           id: string
+          languages: Json | null
+          last_run_at: string | null
+          min_score: number | null
+          per_run_cap: number | null
+          source_name: string | null
+          source_type: string | null
           status: string
+          updated_at: string | null
         }
         Insert: {
+          config?: Json | null
           created_at?: string
           domain: string
+          domains_allowlist?: Json | null
+          domains_blocklist?: Json | null
+          enabled?: boolean | null
           id?: string
+          languages?: Json | null
+          last_run_at?: string | null
+          min_score?: number | null
+          per_run_cap?: number | null
+          source_name?: string | null
+          source_type?: string | null
           status: string
+          updated_at?: string | null
         }
         Update: {
+          config?: Json | null
           created_at?: string
           domain?: string
+          domains_allowlist?: Json | null
+          domains_blocklist?: Json | null
+          enabled?: boolean | null
           id?: string
+          languages?: Json | null
+          last_run_at?: string | null
+          min_score?: number | null
+          per_run_cap?: number | null
+          source_name?: string | null
+          source_type?: string | null
           status?: string
+          updated_at?: string | null
         }
         Relationships: []
       }

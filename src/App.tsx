@@ -11,6 +11,7 @@ import SlangLab from "./pages/SlangLab";
 import History from "./pages/History";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
+import AdminSources from "./pages/AdminSources";
 import DevHealth from "./pages/DevHealth";
 import Leaderboard from "./pages/Leaderboard";
 import SlangDetail from "./pages/SlangDetail";
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/history" element={<History />} />
             <Route path="/account" element={<Account />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/admin/sources" element={<AdminSources />} />
             <Route path="/dev/health" element={<DevHealth />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/slang/:id" element={<SlangDetail />} />
