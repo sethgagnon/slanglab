@@ -56,7 +56,7 @@ export const useTracking = ({ creation, hasLabProAccess }: UseTrackingProps) => 
         // Check if tracking exists for this term
         const { data: tracker } = await supabase
           .from('trackers')
-          .select('id')
+          .select('term_id')
           .eq('term_id', currentTermId)
           .single();
 
@@ -100,16 +100,18 @@ export const useTracking = ({ creation, hasLabProAccess }: UseTrackingProps) => 
           .select('source_name')
           .eq('enabled', true);
 
-        const enabledSources = sourceRules?.map(rule => rule.source_name) || [];
+        const enabledSources = sourceRules?.map(rule => rule.source_name).filter(name => name !== null) || [];
 
-        // Add tracking
+        // Add tracking (upsert to handle existing trackers)
         await supabase
           .from('trackers')
-          .insert({
+          .upsert({
             term_id: termId,
             sensitivity: 'balanced',
             sources_enabled: enabledSources,
             schedule_cron: '0 */6 * * *'
+          }, {
+            onConflict: 'term_id'
           });
 
         setIsTracking(true);
