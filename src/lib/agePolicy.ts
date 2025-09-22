@@ -140,9 +140,9 @@ export function validateRequestForAge(
     errors.push(`Context "${request.context}" not allowed for age group`);
   }
   
-  // Check school-safe requirement
-  if (policy.requireSchoolSafe && request.schoolSafe === false) {
-    errors.push('School-safe mode is required for this age group');
+  // Check school-safe requirement - Phase 3: Only 18-22 can disable school-safe
+  if (request.schoolSafe === false && ageBand !== '18-22') {
+    errors.push('School-safe mode can only be disabled for ages 18-22');
   }
   
   return {

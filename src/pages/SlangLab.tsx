@@ -44,7 +44,7 @@ import { TrialOffer } from '@/components/ui/trial-offer';
 import { ManualSlangForm } from '@/components/ManualSlangForm';
 import { ReportButton } from '@/components/ReportButton';
 import { AgeVerificationModal } from '@/components/AgeVerificationModal';
-import type { AgeBand } from '@/types/slang';
+import type { AgeBand, ContentFormat, ContentContext } from '@/types/slang';
 import { getAgePolicyForBand, getAgeBandDisplay, filterVibesForAge, getSharingConfig } from '@/lib/agePolicy';
 
 
@@ -91,6 +91,28 @@ const FORMATS = [
   { value: 'emoji_word_mash', label: 'Emoji + Words' },
 ];
 
+// Phase 3: Form Presets
+const FORM_PRESETS = [
+  {
+    name: 'Study Squad',
+    vibes: ['academic', 'goofy'],
+    context: 'homework' as ContentContext,
+    format: 'short_phrase' as ContentFormat
+  },
+  {
+    name: 'Gamers',
+    vibes: ['gamer', 'hype'],
+    context: 'gaming' as ContentContext,
+    format: 'word' as ContentFormat
+  },
+  {
+    name: 'Theater Kids',
+    vibes: ['artsy', 'goofy'],
+    context: 'generic' as ContentContext,
+    format: 'emoji_word_mash' as ContentFormat
+  }
+];
+
 const SlangLab = () => {
   const [selectedVibes, setSelectedVibes] = useState<string[]>([]);
   const [selectedContext, setSelectedContext] = useState('generic');
@@ -106,6 +128,9 @@ const SlangLab = () => {
   const [ageBand, setAgeBand] = useState<AgeBand>('11-13');
   const [schoolSafe, setSchoolSafe] = useState(true);
   const [creativity, setCreativity] = useState(0.7);
+  
+  // Phase 3: Form Presets State
+  const [activePreset, setActivePreset] = useState<string | null>(null);
   const [generationStatus, setGenerationStatus] = useState<{
     isFromAI: boolean;
     message: string;
@@ -233,6 +258,34 @@ const SlangLab = () => {
   const isLabPro = hasLabProAccess;
 
   // Function to refresh creations after manual creation
+  // Phase 3: Form Preset Handlers
+  const applyPreset = (preset: typeof FORM_PRESETS[0]) => {
+    const policy = getAgePolicyForBand(ageBand);
+    
+    // Filter vibes for age
+    const allowedVibes = preset.vibes.filter(vibe => 
+      availableVibes.some(av => av.value === vibe)
+    );
+    
+    // Check if format is allowed
+    const allowedFormat = policy.allowedFormats.includes(preset.format) ? 
+      preset.format : policy.allowedFormats[0];
+    
+    // Check if context is allowed
+    const allowedContext = policy.allowedContexts.includes(preset.context) ? 
+      preset.context : 'generic';
+    
+    setSelectedVibes(allowedVibes);
+    setSelectedContext(allowedContext);
+    setSelectedFormat(allowedFormat);
+    setActivePreset(preset.name);
+    
+    toast({
+      title: `${preset.name} preset applied!`,
+      description: "Your form has been updated with the preset values.",
+    });
+  };
+
   const refreshCreations = async () => {
     try {
       const { data, error } = await supabase
@@ -553,16 +606,35 @@ const SlangLab = () => {
                   </div>
                 </div>
 
-                {/* School-Safe Toggle */}
+                {/* Phase 3: Form Presets */}
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Quick Presets</label>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {FORM_PRESETS.map((preset) => (
+                      <Button
+                        key={preset.name}
+                        variant={activePreset === preset.name ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => applyPreset(preset)}
+                        className="text-xs"
+                      >
+                        {preset.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Phase 3: Enhanced School-Safe Toggle (18-22 only) */}
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="text-sm font-medium">School-Safe Mode</label>
                     <p className="text-xs text-muted-foreground">
-                      {agePolicy.requireSchoolSafe 
-                        ? 'Required for your age group' 
-                        : 'Optional - content suitable for academic/work environments'
+                      {ageBand === '18-22' 
+                        ? 'Optional - content suitable for academic/work environments' 
+                        : 'Required for your age group'
                       }
                     </p>
+                    <p className="text-xs text-primary mt-1">Be kind. No hate. No harm.</p>
                   </div>
                   <div className="flex items-center space-x-2">
                     <input
@@ -570,7 +642,7 @@ const SlangLab = () => {
                       id="school-safe"
                       checked={schoolSafe}
                       onChange={(e) => setSchoolSafe(e.target.checked)}
-                      disabled={agePolicy.requireSchoolSafe}
+                      disabled={ageBand !== '18-22'}
                       className="rounded border-border"
                     />
                     <label htmlFor="school-safe" className="text-sm">

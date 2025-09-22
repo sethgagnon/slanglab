@@ -115,58 +115,105 @@ export const slangJsonSchema = {
   additionalProperties: false
 } as const;
 
-// Content blocklist patterns
+// Content blocklist patterns - Enhanced for Phase 3
 export const CONTENT_BLOCKLIST = [
-  // Profanity and slurs
-  'fuck', 'shit', 'bitch', 'damn', 'hell', 'ass', 'crap', 'piss',
-  'fck', 'sh*t', 'b*tch', 'd*mn', 'h*ll', '@ss',
+  // Profanity and slurs (expanded)
+  'fuck', 'shit', 'bitch', 'damn', 'hell', 'ass', 'crap', 'piss', 'fag', 'retard',
+  'fck', 'fuk', 'sh*t', 'sh1t', 'b*tch', 'b1tch', 'd*mn', 'd@mn', 'h*ll', 'h3ll', '@ss', 'a$$',
+  'f.u.c.k', 's.h.i.t', 'b.i.t.c.h', 'a.s.s',
   
-  // Sexual content
-  'sex', 'sexy', 'hot', 'horny', 'porn', 'nude', 'naked',
-  's3x', 's3xy', 'h0t', 'p0rn',
+  // Sexual content (expanded)
+  'sex', 'sexy', 'hot', 'horny', 'porn', 'nude', 'naked', 'penis', 'vagina', 'boobs', 'tits',
+  'orgasm', 'masturbate', 'dildo', 'vibrator', 'anal', 'oral', 'cum', 'jizz', 'sperm',
+  's3x', 's3xy', 'h0t', 'h07', 'p0rn', 'p*rn', 'n@ked', 'nak3d', 'b00bs', 'b00b5',
+  's.e.x', 'p.o.r.n', 'n.u.d.e',
   
-  // Drugs and alcohol
-  'drunk', 'wasted', 'high', 'stoned', 'blazed', 'lit', 'turnt',
-  'beer', 'wine', 'vodka', 'weed', 'pot', 'marijuana',
-  'd*nk', 'w33d', 'p0t',
+  // Drugs and alcohol (expanded)
+  'drunk', 'wasted', 'high', 'stoned', 'blazed', 'lit', 'turnt', 'hammered', 'fucked up',
+  'beer', 'wine', 'vodka', 'whiskey', 'tequila', 'rum', 'gin', 'alcohol', 'booze', 'liquor',
+  'weed', 'pot', 'marijuana', 'cannabis', 'grass', 'herb', 'joint', 'blunt', 'bong', 'dab',
+  'cocaine', 'coke', 'crack', 'heroin', 'meth', 'ecstasy', 'molly', 'acid', 'lsd', 'shrooms',
+  'd*nk', 'w33d', 'p0t', 'w33d', 'mar1juana', 'c0caine', 'c0ke', 'h3roin', 'm3th',
+  'd.r.u.n.k', 'w.e.e.d', 'c.o.k.e',
   
-  // Violence and weapons
-  'kill', 'murder', 'gun', 'knife', 'weapon', 'shoot', 'stab',
-  'k*ll', 'murd3r', 'sh00t',
+  // Violence and weapons (expanded)
+  'kill', 'murder', 'gun', 'knife', 'weapon', 'shoot', 'stab', 'bomb', 'grenade', 'pistol',
+  'rifle', 'shotgun', 'blade', 'sword', 'machete', 'axe', 'hammer', 'club', 'bat',
+  'suicide bomber', 'terrorist', 'assassin', 'hitman', 'serial killer',
+  'k*ll', 'k1ll', 'murd3r', 'sh00t', 'sh007', 'b0mb', 'p1stol', 'r1fle',
+  'k.i.l.l', 'm.u.r.d.e.r', 's.h.o.o.t',
   
-  // Self-harm and mental health
-  'suicide', 'depression', 'cutting', 'harm', 'hurt',
-  'su*c*de', 'd3pr3ss10n',
+  // Self-harm and mental health (expanded)
+  'suicide', 'kill myself', 'end it all', 'cutting', 'self harm', 'hurt myself', 'razor',
+  'depression', 'anxiety', 'ptsd', 'bipolar', 'schizophrenia', 'eating disorder',
+  'anorexia', 'bulimia', 'self injury', 'overdose',
+  'su*c*de', 'su1c1de', 'd3pr3ss10n', 'anx13ty', 'cut71ng',
+  's.u.i.c.i.d.e', 'c.u.t.t.i.n.g',
   
-  // Hate speech
-  'hate', 'racist', 'nazi', 'terrorist',
-  'h@te', 'rac*st'
+  // Hate speech and slurs (expanded)
+  'nigger', 'nigga', 'faggot', 'dyke', 'tranny', 'chink', 'gook', 'spic', 'wetback',
+  'kike', 'kyke', 'sand nigger', 'towelhead', 'raghead', 'terrorist', 'jihad',
+  'nazi', 'hitler', 'holocaust', 'kkk', 'white power', 'white supremacy',
+  'n*gger', 'n1gger', 'f@ggot', 'f@g', 'tr@nny', 'ch1nk', 'g00k', 'sp1c',
+  'n.i.g.g.e.r', 'f.a.g.g.o.t', 'n.a.z.i',
+  
+  // General offensive terms
+  'whore', 'slut', 'prostitute', 'hooker', 'pimp', 'pedophile', 'rapist', 'molester',
+  'wh0re', 'sl*t', 'pr0stitute', 'h00ker', 'p3dophile', 'rap1st',
+  'w.h.o.r.e', 's.l.u.t'
 ];
 
 export const CONTENT_BLOCKLIST_REGEX = [
-  // Leetspeak variations
-  /[s5][h3][i1][t7]/gi, // shit variations
-  /[f][u][c][k]/gi,     // fuck variations  
-  /[b][i1][t7][c][h]/gi, // bitch variations
-  /[a@][s5]{2}/gi,      // ass variations
-  /[d][a@][m][n]/gi,    // damn variations
+  // Enhanced leetspeak and obfuscation patterns
+  /[s5$][h3][i1!][t7+]/gi, // shit variations
+  /[f][u][c][k]/gi,        // fuck variations  
+  /[b][i1!][t7+][c][h3]/gi, // bitch variations
+  /[a@4][s5$]{2,}/gi,      // ass variations
+  /[d][a@4][m][n]/gi,      // damn variations
+  /[n][i1!][g9][g9][e3][r]/gi, // n-word variations
+  /[f][a@4][g9]{2}[o0][t7+]/gi, // f-word slur variations
   
-  // Sexual content patterns
-  /[s5][e3][x]/gi,      // sex variations
-  /[h][o0][t]/gi,       // hot (context-dependent)
-  /[p][o0][r][n]/gi,    // porn variations
+  // Sexual content patterns (enhanced)
+  /[s5$][e3][x]/gi,        // sex variations
+  /[p][o0][r][n]/gi,       // porn variations
+  /[n][u][d][e3]/gi,       // nude variations
+  /[h][o0][r][n][y]/gi,    // horny variations
+  /[o0][r][g9][a@4][s5$][m]/gi, // orgasm variations
   
-  // Drug patterns
-  /[w][e3]{2}[d]/gi,    // weed variations
-  /[h][i1][g][h]/gi,    // high (context-dependent)
-  /[s5][t7][o0][n][e3][d]/gi, // stoned variations
+  // Drug patterns (enhanced)
+  /[w][e3]{2}[d]/gi,       // weed variations
+  /[h][i1!][g9][h3]/gi,    // high variations (context-dependent)
+  /[s5$][t7+][o0][n][e3][d]/gi, // stoned variations
+  /[c][o0][c][a@4][i1!][n][e3]/gi, // cocaine variations
+  /[h3][e3][r][o0][i1!][n]/gi, // heroin variations
+  /[m][e3][t7+][h3]/gi,    // meth variations
   
-  // Violence patterns
-  /[k][i1][l]{2}/gi,    // kill variations
-  /[s5][h][o0]{2}[t7]/gi, // shoot variations
+  // Violence patterns (enhanced)
+  /[k][i1!][l]{2}/gi,      // kill variations
+  /[m][u][r][d][e3][r]/gi, // murder variations
+  /[s5$][h3][o0]{2}[t7+]/gi, // shoot variations
+  /[b][o0][m][b]/gi,       // bomb variations
+  /[g9][u][n]/gi,          // gun variations
+  /[k][n][i1!][f][e3]/gi,  // knife variations
   
-  // Common substitution patterns
-  /[0-9@$!#%^&*]+/g     // Excessive special chars/numbers
+  // Self-harm patterns
+  /[s5$][u][i1!][c][i1!][d][e3]/gi, // suicide variations
+  /[c][u][t7+]{2}[i1!][n][g9]/gi,  // cutting variations
+  /[s5$][e3][l][f][\s\.\-_]*[h3][a@4][r][m]/gi, // self harm variations
+  
+  // Hate speech patterns
+  /[n][a@4][z][i1!]/gi,    // nazi variations
+  /[h3][i1!][t7+][l][e3][r]/gi, // hitler variations
+  /[t7+][e3][r]{2}[o0][r][i1!][s5$][t7+]/gi, // terrorist variations
+  
+  // Advanced obfuscation patterns
+  /(.)\1{4,}/gi,           // Repeated characters (aaaa, 1111)
+  /[0-9@$!#%^&*]{3,}/gi,   // Excessive special chars/numbers
+  /[\.\-_\s]{2,}/gi,       // Multiple dots/dashes/spaces for separation
+  /[aeiou]/gi,             // Vowel removal patterns (common obfuscation)
+  /([a-z])\1+/gi,          // Character repetition (heeello)
+  /\b[a-z]*[0-9]+[a-z]*\b/gi, // Mixed numbers in words
+  /[^a-zA-Z0-9\s]{2,}/gi   // Multiple special characters together
 ];
 
 // Age-specific vibe filtering
