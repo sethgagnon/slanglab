@@ -298,7 +298,7 @@ const SlangLab = () => {
               Creator
             </Link>
             {user && (
-              <Link to="/history" className="text-sm font-medium text-muted-foreground hover:text-foreground">
+              <Link to="/account?tab=history" className="text-sm font-medium text-muted-foreground hover:text-foreground">
                 History
               </Link>
             )}

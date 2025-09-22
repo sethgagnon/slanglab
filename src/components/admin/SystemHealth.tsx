@@ -32,7 +32,7 @@ export const SystemHealth = () => {
         name: 'React Router DOM',
         status: 'success',
         message: 'React Router v6 configured with BrowserRouter',
-        details: 'Routes: /, /auth, /lookup, /slang-lab, /history, /account, /admin, /leaderboard, /slang/:id'
+        details: 'Routes: /, /auth, /lookup, /slang-lab, /account, /admin, /leaderboard, /slang/:id'
       });
     } catch (error) {
       checks.push({

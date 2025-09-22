@@ -154,7 +154,7 @@ const Landing = () => {
                       <Settings className="mr-2 h-4 w-4" />
                       Account
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/history')}>
+                    <DropdownMenuItem onClick={() => navigate('/account?tab=history')}>
                       <History className="mr-2 h-4 w-4" />
                       History
                     </DropdownMenuItem>

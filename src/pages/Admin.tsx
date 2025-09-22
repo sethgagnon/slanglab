@@ -39,7 +39,7 @@ const Admin = () => {
               <Link to="/slang-lab" className="text-sm font-medium text-muted-foreground hover:text-foreground">
                 Creator
               </Link>
-              <Link to="/history" className="text-sm font-medium text-muted-foreground hover:text-foreground">
+              <Link to="/account?tab=history" className="text-sm font-medium text-muted-foreground hover:text-foreground">
                 History
               </Link>
             </nav>
