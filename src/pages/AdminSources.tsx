@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,6 +37,7 @@ interface SourceRule {
 const AdminSources = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [sources, setSources] = useState<SourceRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -46,8 +48,8 @@ const AdminSources = () => {
       console.log('AdminSources: Starting auth check', { user: user?.id });
       
       if (!user) {
-        console.log('AdminSources: No user found');
-        setLoading(false);
+        console.log('AdminSources: No user found, redirecting to auth');
+        navigate('/auth?redirect=/admin/sources');
         return;
       }
       

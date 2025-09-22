@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { SEOHead, createWebsiteSchema } from '@/components/SEOHead';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,15 +18,17 @@ const Auth = () => {
   const { signIn, signUp, user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     // Only redirect if user is authenticated AND auth loading is complete
     // This prevents redirects during auth state initialization
     if (user && !authLoading) {
-      console.log('Auth page: User authenticated, redirecting to home');
-      navigate('/');
+      const redirectTo = searchParams.get('redirect') || '/';
+      console.log('Auth page: User authenticated, redirecting to:', redirectTo);
+      navigate(redirectTo);
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, searchParams]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,7 +61,8 @@ const Auth = () => {
           title: "Welcome back!",
           description: "Successfully signed in.",
         });
-        navigate('/');
+        const redirectTo = searchParams.get('redirect') || '/';
+        navigate(redirectTo);
       }
     } catch (error) {
       toast({
