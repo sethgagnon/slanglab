@@ -533,7 +533,7 @@ const Account = () => {
                   <CardDescription>Your current limits and usage</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div>
+                  <div className="space-y-1">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium">Searches (Daily)</span>
                       <span className="text-sm text-muted-foreground">
@@ -541,9 +541,22 @@ const Account = () => {
                       </span>
                     </div>
                     <Progress value={usage.searchesLimit === -1 ? 0 : usage.searchesUsed / usage.searchesLimit * 100} className="h-2" />
+                    {usage.searchesLimit !== -1 && usage.searchesUsed >= usage.searchesLimit && (
+                      <div className="flex items-center justify-between text-xs mt-2">
+                        <span className="text-destructive font-medium">Daily limit reached</span>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => handleUpgrade('price_1SADlGDt8zpU0lE0mlv6nVLL')}
+                        >
+                          <Crown className="w-3 h-3 mr-1" />
+                          Upgrade
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   
-                  <div>
+                  <div className="space-y-1">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium">AI Creations {usage.plan === 'LabPro' ? '(Daily)' : '(Weekly)'}</span>
                       <span className="text-sm text-muted-foreground">
@@ -551,9 +564,22 @@ const Account = () => {
                       </span>
                     </div>
                     <Progress value={usage.aiCreationsLimit === -1 ? 0 : usage.aiCreationsUsed / usage.aiCreationsLimit * 100} className="h-2" />
+                    {usage.aiCreationsLimit !== -1 && usage.aiCreationsUsed >= usage.aiCreationsLimit && (
+                      <div className="flex items-center justify-between text-xs mt-2">
+                        <span className="text-destructive font-medium">Limit reached</span>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => handleUpgrade(usage.plan === 'SearchPro' ? 'price_1SADmrDt8zpU0lE0PKZLjhJA' : 'price_1SADlGDt8zpU0lE0mlv6nVLL')}
+                        >
+                          <Users className="w-3 h-3 mr-1" />
+                          {usage.plan === 'SearchPro' ? 'Get LabPro' : 'Upgrade'}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   
-                  <div>
+                  <div className="space-y-1">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium">Manual Creations (Weekly)</span>
                       <span className="text-sm text-muted-foreground">
@@ -561,6 +587,19 @@ const Account = () => {
                       </span>
                     </div>
                     <Progress value={usage.manualCreationsLimit === -1 ? 0 : usage.manualCreationsUsed / usage.manualCreationsLimit * 100} className="h-2" />
+                    {usage.manualCreationsLimit !== -1 && usage.manualCreationsUsed >= usage.manualCreationsLimit && (
+                      <div className="flex items-center justify-between text-xs mt-2">
+                        <span className="text-destructive font-medium">Weekly limit reached</span>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => handleUpgrade('price_1SADmrDt8zpU0lE0PKZLjhJA')}
+                        >
+                          <Users className="w-3 h-3 mr-1" />
+                          Get LabPro
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="text-xs text-muted-foreground space-y-1">
@@ -608,9 +647,9 @@ const Account = () => {
                           <li>• Unlimited manual creations</li>
                           <li>• Advanced tracking & analytics</li>
                         </ul>
-                        <Button 
+                         <Button 
                           className="w-full" 
-                          onClick={() => handleUpgrade('price_1SADlfDt8zpU0lE0Ya1QqVlL')}
+                          onClick={() => handleUpgrade('price_1SADmrDt8zpU0lE0PKZLjhJA')}
                         >
                           Choose LabPro
                         </Button>
@@ -662,18 +701,44 @@ const Account = () => {
                       </Table>
                     </div>
                   ) : (
-                    <div className="text-center py-12">
+                     <div className="text-center py-12">
                       <Sparkles className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                       <h3 className="text-lg font-medium mb-2">No creations yet</h3>
                       <p className="text-muted-foreground mb-6">
                         Start creating slang terms to see them here with tracking capabilities
                       </p>
-                      <Button asChild>
-                        <Link to="/slang-lab">
-                          <PlusCircle className="w-4 h-4 mr-2" />
-                          Create Your First Term
-                        </Link>
-                      </Button>
+                      <div className="space-y-4">
+                        <Button asChild>
+                          <Link to="/slang-lab">
+                            <PlusCircle className="w-4 h-4 mr-2" />
+                            Create Your First Term
+                          </Link>
+                        </Button>
+                        
+                        {/* Feature discovery upsell */}
+                        {usage.plan === 'Free' && (
+                          <div className="max-w-md mx-auto">
+                            <div className="p-4 border rounded-lg bg-muted/30">
+                              <div className="flex items-center gap-2 mb-2">
+                                <TrendingUp className="w-4 h-4 text-primary" />
+                                <span className="text-sm font-medium">Track Your Viral Slang</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground mb-3">
+                                See how your creations spread across Reddit, TikTok, and more with LabPro tracking
+                              </p>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="w-full"
+                                onClick={() => handleUpgrade('price_1SADmrDt8zpU0lE0PKZLjhJA')}
+                              >
+                                <Users className="w-3 h-3 mr-1" />
+                                Unlock Tracking - $3.99/mo
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </CardContent>

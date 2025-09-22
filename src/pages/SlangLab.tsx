@@ -29,6 +29,8 @@ import LeaderboardWidget from '@/components/LeaderboardWidget';
 import { useUsageStats } from '@/hooks/useUsageStats';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt';
+import { ApproachingLimitBanner } from '@/components/ui/approaching-limit-banner';
+import { SmartUpgradeCta } from '@/components/ui/smart-upgrade-cta';
 import { ManualSlangForm } from '@/components/ManualSlangForm';
 import { ReportButton } from '@/components/ReportButton';
 import { AgeVerificationModal } from '@/components/AgeVerificationModal';
@@ -70,7 +72,16 @@ const SlangLab = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("ai-create");
-  const { plan, isAdmin } = useUsageStats();
+  const { 
+    plan, 
+    isAdmin, 
+    searchesUsed, 
+    searchesLimit, 
+    aiCreationsUsed, 
+    aiCreationsLimit,
+    manualCreationsUsed,
+    manualCreationsLimit 
+  } = useUsageStats();
 
   if (!user) {
     return <Navigate to="/auth" replace />;
@@ -197,17 +208,28 @@ const SlangLab = () => {
         message: data.message || 'Slang generated successfully!',
         canRetry: data.canRetry || false
       });
-    } catch (error: any) {
-      console.error('Generation error:', error);
-      toast({
-        title: "Generation failed",
-        description: error.message || "Unable to generate new slang. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+      } catch (error: any) {
+        console.error('Generation error:', error);
+        
+        // Show specific upgrade prompt for limit errors
+        if (error.message?.includes('limit') || error.message?.includes('quota')) {
+          // This will be handled by the UpgradePrompt component below
+          setGenerationStatus({
+            isFromAI: false,
+            message: error.message,
+            canRetry: false
+          });
+        } else {
+          toast({
+            title: "Generation failed",
+            description: error.message || "Unable to generate new slang. Please try again.",
+            variant: "destructive",
+          });
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
 
   const handleVote = async (creationId: string, value: 1 | -1) => {
     if (!user) {
@@ -326,13 +348,35 @@ const SlangLab = () => {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2">Slang Creator Lab</h1>
           <p className="text-muted-foreground">
             Generate fun, safe new phrases and track them in the wild
           </p>
+        </div>
+
+        {/* Usage Alerts */}
+        <div className="max-w-4xl mx-auto mb-6 space-y-3">
+          <ApproachingLimitBanner 
+            usedCount={searchesUsed} 
+            totalLimit={searchesLimit} 
+            limitType="searches" 
+            plan={plan}
+          />
+          <ApproachingLimitBanner 
+            usedCount={aiCreationsUsed} 
+            totalLimit={aiCreationsLimit} 
+            limitType="ai-creations" 
+            plan={plan}
+          />
+          <ApproachingLimitBanner 
+            usedCount={manualCreationsUsed} 
+            totalLimit={manualCreationsLimit} 
+            limitType="manual-creations" 
+            plan={plan}
+          />
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
@@ -407,26 +451,33 @@ const SlangLab = () => {
                 {generationStatus && (
                   <Card className="mx-auto max-w-2xl">
                     <CardContent className="p-4">
-                      <div className="flex items-center space-x-2">
-                        {generationStatus.isFromAI ? (
-                          <CheckCircle className="h-5 w-5 text-green-500" />
-                        ) : (
-                          <Badge variant="outline" className="bg-yellow-50">
-                            Fallback
-                          </Badge>
-                        )}
-                        <p className="text-sm font-medium">{generationStatus.message}</p>
-                        {generationStatus.canRetry && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={handleGenerate}
-                            disabled={loading}
-                          >
-                            Try Again
-                          </Button>
-                        )}
-                      </div>
+                      {generationStatus.message?.includes('limit') || generationStatus.message?.includes('quota') ? (
+                        <UpgradePrompt 
+                          type="creation-limit" 
+                          className="border-0 shadow-none p-0"
+                        />
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          {generationStatus.isFromAI ? (
+                            <CheckCircle className="h-5 w-5 text-green-500" />
+                          ) : (
+                            <Badge variant="outline" className="bg-yellow-50">
+                              Fallback
+                            </Badge>
+                          )}
+                          <p className="text-sm font-medium">{generationStatus.message}</p>
+                          {generationStatus.canRetry && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={handleGenerate}
+                              disabled={loading}
+                            >
+                              Try Again
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 )}
@@ -543,6 +594,16 @@ const SlangLab = () => {
                     </Card>
                   ))}
                 </div>
+                
+                {/* Smart Upgrade CTA after successful creation */}
+                {generationStatus?.isFromAI && plan === 'Free' && (
+                  <div className="max-w-2xl mx-auto">
+                    <SmartUpgradeCta 
+                      context="success-creation" 
+                      plan={plan} 
+                    />
+                  </div>
+                )}
               </div>
             )}
 
