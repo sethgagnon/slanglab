@@ -42,8 +42,17 @@ const AdminSources = () => {
   const [selectedSource, setSelectedSource] = useState<SourceRule | null>(null);
 
   useEffect(() => {
-    checkAdminStatus();
-    loadSources();
+    const checkAuth = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      
+      await checkAdminStatus();
+      await loadSources();
+    };
+    
+    checkAuth();
   }, [user]);
 
   const checkAdminStatus = async () => {
@@ -161,16 +170,16 @@ const AdminSources = () => {
     return <Navigate to="/auth" replace />;
   }
 
-  if (!isAdmin) {
-    return <Navigate to="/" replace />;
-  }
-
   if (loading) {
     return (
       <div className="container mx-auto p-6">
         <div className="text-center">Loading...</div>
       </div>
     );
+  }
+
+  if (!isAdmin) {
+    return <Navigate to="/" replace />;
   }
 
   const googleSource = sources.find(s => s.source_type === 'search_api');
