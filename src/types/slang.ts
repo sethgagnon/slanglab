@@ -27,18 +27,21 @@ export interface SlangItem {
   phrase: string;
   meaning: string;
   example: string;
+  usage_examples?: string[];     // 1-2 additional examples
+  part_of_speech?: string;       // POS chip (noun, verb, adjective, etc.)
+  notes_for_moderator?: string;  // Safety explanation for tooltip
   safeFlag?: boolean;
   format?: ContentFormat;
   context?: ContentContext;
 }
 
 export interface GenerateSlangRequest {
-  vibe: string;
+  vibeTags: string[];           // Multi-select vibes
+  context: ContentContext;      // Single context selection
+  format: ContentFormat;        // Explicit format selection
+  creativity: number;
   ageBand?: AgeBand;
   schoolSafe?: boolean;
-  creativity?: number;
-  format?: ContentFormat;
-  context?: ContentContext;
 }
 
 export interface GenerateSlangResponse {
@@ -80,6 +83,27 @@ export const slangJsonSchema = {
             minLength: 5,
             maxLength: 150,
             description: "Natural conversational sentence using the phrase"
+          },
+          usage_examples: {
+            type: "array",
+            minItems: 1,
+            maxItems: 2,
+            items: {
+              type: "string",
+              minLength: 5,
+              maxLength: 150
+            },
+            description: "1-2 additional usage examples"
+          },
+          part_of_speech: {
+            type: "string",
+            maxLength: 20,
+            description: "Part of speech (noun, verb, adjective, etc.)"
+          },
+          notes_for_moderator: {
+            type: "string",
+            maxLength: 200,
+            description: "Brief explanation of why this content is safe and appropriate"
           }
         },
         required: ["phrase", "meaning", "example"],

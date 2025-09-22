@@ -4,6 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Chip } from '@/components/ui/chip';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Sparkles, 
@@ -48,6 +53,9 @@ interface Creation {
   phrase: string;
   meaning: string;
   example: string;
+  usage_examples?: string[];
+  part_of_speech?: string;
+  notes_for_moderator?: string;
   safe_flag: boolean;
   votes: number;
   creation_type?: string;
@@ -56,15 +64,37 @@ interface Creation {
 }
 
 const VIBES = [
-  { value: 'praise', label: 'Praise & Compliments' },
-  { value: 'hype', label: 'Hype & Excitement' },
-  { value: 'food', label: 'Food & Dining' },
-  { value: 'compliment', label: 'General Compliment' },
-  { value: 'gentle-roast', label: 'Gentle Roast' },
+  { value: 'hype', label: 'Hype' },
+  { value: 'chill', label: 'Chill' },
+  { value: 'goofy', label: 'Goofy' },
+  { value: 'try-hard', label: 'Try-hard' },
+  { value: 'academic', label: 'Academic' },
+  { value: 'gamer', label: 'Gamer' },
+  { value: 'artsy', label: 'Artsy' },
+  { value: 'sportsy', label: 'Sportsy' },
+];
+
+const CONTEXTS = [
+  { value: 'food', label: 'Food' },
+  { value: 'homework', label: 'Homework' },
+  { value: 'sports', label: 'Sports' },
+  { value: 'gaming', label: 'Gaming' },
+  { value: 'music', label: 'Music' },
+  { value: 'fashion', label: 'Fashion' },
+  { value: 'inside-joke', label: 'Inside Joke' },
+  { value: 'generic', label: 'Generic' },
+];
+
+const FORMATS = [
+  { value: 'word', label: 'Single Word' },
+  { value: 'short_phrase', label: 'Short Phrase' },
+  { value: 'emoji_word_mash', label: 'Emoji + Words' },
 ];
 
 const SlangLab = () => {
-  const [selectedVibe, setSelectedVibe] = useState<string>('');
+  const [selectedVibes, setSelectedVibes] = useState<string[]>([]);
+  const [selectedContext, setSelectedContext] = useState('generic');
+  const [selectedFormat, setSelectedFormat] = useState('short_phrase');
   const [loading, setLoading] = useState(false);
   const [creations, setCreations] = useState<Creation[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -225,10 +255,10 @@ const SlangLab = () => {
   };
 
   const handleGenerate = async () => {
-    if (!selectedVibe) {
+    if (selectedVibes.length === 0) {
       toast({
-        title: "Select a vibe",
-        description: "Please choose a vibe before generating new slang.",
+        title: "Select at least one vibe",
+        description: "Please choose at least one vibe before generating new slang.",
         variant: "destructive",
       });
       return;
@@ -239,12 +269,12 @@ const SlangLab = () => {
     try {
       const { data, error } = await supabase.functions.invoke('generate-slang', {
         body: { 
-          vibe: selectedVibe,
+          vibeTags: selectedVibes,
+          context: selectedContext,
+          format: selectedFormat,
           ageBand,
           schoolSafe,
-          creativity,
-          format: 'short_phrase',
-          context: 'generic'
+          creativity
         }
       });
 
@@ -569,25 +599,70 @@ const SlangLab = () => {
                   </div>
                 </div>
 
-                {/* Vibe Selection */}
+                {/* Multi-Vibe Selection */}
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Choose a Vibe</label>
-                  <Select value={selectedVibe} onValueChange={setSelectedVibe}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select the mood you want to create..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableVibes.map((vibe) => (
-                        <SelectItem key={vibe.value} value={vibe.value}>
-                          {vibe.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <label className="text-sm font-medium mb-2 block">Choose Vibes (1-3)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {availableVibes.map((vibe) => (
+                      <Chip
+                        key={vibe.value}
+                        selected={selectedVibes.includes(vibe.value)}
+                        onClick={() => {
+                          if (selectedVibes.includes(vibe.value)) {
+                            setSelectedVibes(selectedVibes.filter(v => v !== vibe.value));
+                          } else if (selectedVibes.length < 3) {
+                            setSelectedVibes([...selectedVibes, vibe.value]);
+                          }
+                        }}
+                      >
+                        {vibe.label}
+                      </Chip>
+                    ))}
+                  </div>
+                  {selectedVibes.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Selected: {selectedVibes.length}/3
+                    </p>
+                  )}
+                </div>
+
+                {/* Context Selection */}
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Context</label>
+                  <div className="flex flex-wrap gap-2">
+                    {CONTEXTS.filter(context => agePolicy.allowedContexts.includes(context.value as any)).map((context) => (
+                      <Chip
+                        key={context.value}
+                        selected={selectedContext === context.value}
+                        onClick={() => setSelectedContext(context.value)}
+                      >
+                        {context.label}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Format Selection */}
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Format</label>
+                  <RadioGroup 
+                    value={selectedFormat} 
+                    onValueChange={setSelectedFormat}
+                    className="flex flex-wrap gap-4"
+                  >
+                    {FORMATS.filter(format => agePolicy.allowedFormats.includes(format.value as any)).map((format) => (
+                      <div key={format.value} className="flex items-center space-x-2">
+                        <RadioGroupItem value={format.value} id={format.value} />
+                        <Label htmlFor={format.value} className="cursor-pointer">
+                          {format.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
                 </div>
                 <Button 
                   onClick={handleGenerate} 
-                  disabled={loading || !selectedVibe}
+                  disabled={loading || selectedVibes.length === 0}
                   className="w-full"
                   size="lg"
                 >
@@ -746,7 +821,7 @@ const SlangLab = () => {
                                     phrase: creation.phrase,
                                     meaning: creation.meaning,
                                     example: creation.example,
-                                    vibe: selectedVibe,
+                                    vibe: selectedVibes.join(', '),
                                     created_at: new Date().toISOString(),
                                     creation_type: 'ai'
                                   } as ShareCreation);

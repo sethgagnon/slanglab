@@ -90,9 +90,30 @@ const slangJsonSchema = {
             minLength: 5,
             maxLength: 150,
             description: "Natural conversational sentence using the phrase"
+          },
+          usage_examples: {
+            type: "array",
+            minItems: 1,
+            maxItems: 2,
+            items: {
+              type: "string",
+              minLength: 5,
+              maxLength: 150
+            },
+            description: "1-2 additional usage examples"
+          },
+          part_of_speech: {
+            type: "string",
+            maxLength: 20,
+            description: "Part of speech (noun, verb, adjective, etc.)"
+          },
+          notes_for_moderator: {
+            type: "string",
+            maxLength: 200,
+            description: "Brief explanation of why this content is safe and appropriate"
           }
         },
-        required: ["phrase", "meaning", "example"],
+        required: ["phrase", "meaning", "example", "usage_examples", "part_of_speech", "notes_for_moderator"],
         additionalProperties: false
       }
     }
@@ -245,38 +266,63 @@ serve(async (req) => {
   globalThis.currentRequest = req;
 
   try {
-    // Enhanced input validation with age-aware parameters
+    // Enhanced input validation with age-aware parameters  
     const body = await req.json();
     const { 
-      vibe, 
+      vibeTags, 
+      context,
+      format,
       ageBand: clientAgeBand, 
       schoolSafe: clientSchoolSafe, 
-      creativity: clientCreativity,
-      format: clientFormat,
-      context: clientContext 
+      creativity: clientCreativity
     } = body;
     
-    if (!vibe || typeof vibe !== 'string' || !VIBES[vibe as keyof typeof VIBES]) {
-      return new Response(JSON.stringify({ error: 'Invalid vibe specified' }), {
+    if (!vibeTags || !Array.isArray(vibeTags) || vibeTags.length === 0) {
+      return new Response(JSON.stringify({ error: 'Vibe tags are required and must be a non-empty array' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Input moderation check
-    const moderationResult = await moderateInput(vibe);
-    if (moderationResult.flagged) {
-      console.log('Input flagged by moderation:', moderationResult.reason);
-      return new Response(JSON.stringify({ 
-        error: 'Input contains inappropriate content. Please try a different request.',
-        reason: 'content_policy_violation'
-      }), {
+    if (!context || typeof context !== 'string') {
+      return new Response(JSON.stringify({ error: 'Context is required and must be a string' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Generating slang for vibe:', vibe);
+    if (!format || typeof format !== 'string') {
+      return new Response(JSON.stringify({ error: 'Format is required and must be a string' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Validate vibes
+    const invalidVibes = vibeTags.filter(vibe => !VIBES[vibe as keyof typeof VIBES]);
+    if (invalidVibes.length > 0) {
+      return new Response(JSON.stringify({ error: `Invalid vibes: ${invalidVibes.join(', ')}` }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Input moderation check for all vibes
+    for (const vibe of vibeTags) {
+      const moderationResult = await moderateInput(vibe);
+      if (moderationResult.flagged) {
+        console.log('Input flagged by moderation:', moderationResult.reason);
+        return new Response(JSON.stringify({ 
+          error: 'Input contains inappropriate content. Please try a different request.',
+          reason: 'content_policy_violation'
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    console.log('Generating slang for vibes:', vibeTags, 'context:', context, 'format:', format);
 
     const authHeader = req.headers.get('authorization');
     let userId = null;
@@ -399,7 +445,8 @@ serve(async (req) => {
     console.log('Enforced parameters:', enforcedParams);
 
     // Smart cache strategy check
-    const { shouldUseCache, cacheEntry } = await checkCacheStrategy(userId, vibe, userPlan, userRole);
+    const cacheKey = vibeTags.join(',');
+    const { shouldUseCache, cacheEntry } = await checkCacheStrategy(userId, cacheKey, userPlan, userRole);
     
     if (shouldUseCache && cacheEntry) {
       console.log('Using cached content for user:', userId);
@@ -420,7 +467,7 @@ serve(async (req) => {
 
     // Generate fresh AI content with age-aware parameters
     console.log('Generating fresh AI content for user:', userId);
-    const result = await generateSlang(vibe, enforcedParams);
+    const result = await generateSlang(vibeTags, context, format, enforcedParams);
     console.log('Generated result:', result);
 
     // Moderate the generated content
@@ -429,12 +476,12 @@ serve(async (req) => {
 
     // Save to cache if we got AI content
     if (result.isFromAI && moderatedCreations.length > 0) {
-      await saveToCacheDatabase(vibe, moderatedCreations);
+      await saveToCacheDatabase(cacheKey, moderatedCreations);
     }
 
     // Save to database if user is authenticated
     if (userId) {
-      await saveCreationsToDatabase(userId, vibe, moderatedCreations);
+      await saveCreationsToDatabase(userId, cacheKey, moderatedCreations);
       await updateGenerationLimits(userId);
     }
 
@@ -598,13 +645,13 @@ async function getFallbackFromCache(vibe: string): Promise<any[] | null> {
 }
 
 async function generateSlang(
-  vibe: string, 
+  vibeTags: string[],
+  context: string,
+  format: string,
   params: {
     ageBand: AgeBand;
     creativity: number;
     schoolSafe: boolean;
-    format?: string;
-    context?: string;
   },
   retryCount = 0
 ): Promise<{ creations: any[], isFromAI: boolean, error?: string }> {
@@ -623,21 +670,35 @@ async function generateSlang(
     };
   }
 
-  const vibePrompt = VIBES[vibe as keyof typeof VIBES];
+  const vibePrompts = vibeTags.map(vibe => VIBES[vibe as keyof typeof VIBES]).join(' + ');
   const ageSafetyPrompt = getAgeSafetyPrompt(params.ageBand, params.schoolSafe);
   
-  const systemPrompt = `${vibePrompt}
+  // Format-specific instructions
+  const formatInstructions = {
+    'word': 'Create single-word slang terms',
+    'short_phrase': 'Create 2-3 word slang phrases', 
+    'emoji_word_mash': 'Create creative combinations of words and emojis'
+  };
+  
+  const systemPrompt = `Create exactly 3 unique slang terms with these combined vibes: "${vibePrompts}" in the context of "${context}".
+
+Format requirement: ${formatInstructions[format as keyof typeof formatInstructions] || 'Create short slang phrases'}
 
 ${ageSafetyPrompt}
 
-Creative Instructions:
-- Use wordplay, puns, alliteration, and sound patterns appropriate for age group
-- Create compound words and fresh metaphors
-- Use sensory language and vivid imagery
-- Make each phrase feel distinct and memorable
-- Creativity level: ${params.creativity} (0.1 = very conservative, 1.0 = very creative)
+Important requirements:
+- Each term should capture the combined vibe feeling: ${vibePrompts}
+- Focus specifically on ${context}-related terminology
+- Provide clear, concise definitions (15-20 words)
+- Include the main usage example plus 1-2 additional usage examples
+- Include part of speech (noun, verb, adjective, etc.)
+- Add brief notes explaining why each term is safe and appropriate
+- Creativity level: ${params.creativity} (0 = very conservative, 1 = highly creative)
+- Make terms distinctive and memorable for ${context} context
+- Ensure all content is appropriate for age group: ${params.ageBand}
+${params.schoolSafe ? '- Content must be school-appropriate' : ''}
 
-Return 1-3 high-quality slang items in the specified JSON format. Quality over quantity.`;
+Focus on creating fresh, authentic slang that captures the combined "${vibePrompts}" feeling in ${context} situations while being completely safe and appropriate.`;
 
   try {
     const apiCallStart = Date.now();
@@ -656,7 +717,7 @@ Return 1-3 high-quality slang items in the specified JSON format. Quality over q
           },
           {
             role: 'user',
-            content: `Generate ${params.ageBand} age-appropriate slang for "${vibe}" vibe. School-safe: ${params.schoolSafe}. Return JSON only.`
+            content: `Generate ${params.ageBand} age-appropriate slang with vibes: "${vibeTags.join(', ')}", context: "${context}", format: "${format}". School-safe: ${params.schoolSafe}. Return JSON only.`
           }
         ],
         max_completion_tokens: 800, // Reduced for 1-3 items instead of 5
@@ -695,11 +756,11 @@ Return 1-3 high-quality slang items in the specified JSON format. Quality over q
         console.log(`Rate limited. Retrying in ${backoffDelay}ms (attempt ${retryCount + 1}/3)`);
         
         await new Promise(resolve => setTimeout(resolve, backoffDelay));
-        return generateSlang(vibe, params, retryCount + 1);
+        return generateSlang(vibeTags, context, format, params, retryCount + 1);
       }
       
       // Enhanced fallback - try cache first, then predefined
-      const fallbackFromCache = await getFallbackFromCache(vibe);
+      const fallbackFromCache = await getFallbackFromCache(vibeTags.join(','));
       if (fallbackFromCache) {
         console.log('Using cache fallback');
         return { creations: fallbackFromCache, isFromAI: false, error: 'OpenAI API error - using cached content' };
@@ -711,7 +772,7 @@ Return 1-3 high-quality slang items in the specified JSON format. Quality over q
         : `OpenAI API error: ${response.status}`;
         
       return { 
-        creations: getFallbackCreations(vibe), 
+        creations: getFallbackCreations(vibeTags[0]), 
         isFromAI: false,
         error: errorMsg
       };
@@ -727,7 +788,7 @@ Return 1-3 high-quality slang items in the specified JSON format. Quality over q
       request_type: 'generation', 
       status: response.status,
       processing_time_ms: apiCallEnd - apiCallStart,
-      request_data: { model: 'gpt-5-mini-2025-08-07', vibe, ageBand: params.ageBand },
+      request_data: { model: 'gpt-5-mini-2025-08-07', vibes: vibeTags, context, format, ageBand: params.ageBand },
       response_data: { 
         usage: data.usage,
         model: data.model 
@@ -746,13 +807,21 @@ Return 1-3 high-quality slang items in the specified JSON format. Quality over q
         throw new Error('Invalid response format - no slang items');
       }
       
-      // Validate each item has required fields
+      // Validate each item has required fields and map to include new fields
       const validCreations = slangItems.filter(item => 
         item.phrase && item.meaning && item.example &&
         typeof item.phrase === 'string' && 
         typeof item.meaning === 'string' && 
         typeof item.example === 'string'
-      );
+      ).map(item => ({
+        phrase: item.phrase,
+        meaning: item.meaning,
+        example: item.example,
+        usage_examples: item.usage_examples || [],
+        part_of_speech: item.part_of_speech || '',
+        notes_for_moderator: item.notes_for_moderator || '',
+        safeFlag: true
+      }));
       
       if (validCreations.length === 0) {
         throw new Error('No valid creations in response');
@@ -764,13 +833,13 @@ Return 1-3 high-quality slang items in the specified JSON format. Quality over q
       console.error('Failed to parse OpenAI response:', content);
       
       // Try cache fallback before predefined
-      const fallbackFromCache = await getFallbackFromCache(vibe);
+      const fallbackFromCache = await getFallbackFromCache(vibeTags.join(','));
       if (fallbackFromCache) {
         return { creations: fallbackFromCache, isFromAI: false, error: 'Invalid AI response - using cached content' };
       }
       
       return { 
-        creations: getFallbackCreations(vibe), 
+        creations: getFallbackCreations(vibeTags[0]), 
         isFromAI: false,
         error: 'Invalid AI response format'
       };
@@ -779,7 +848,7 @@ Return 1-3 high-quality slang items in the specified JSON format. Quality over q
     console.error('OpenAI API error:', error);
     
     // Enhanced fallback - try cache first, then predefined
-    const fallbackFromCache = await getFallbackFromCache(vibe);
+    const fallbackFromCache = await getFallbackFromCache(vibeTags.join(','));
     if (fallbackFromCache) {
       console.log('Using cache fallback due to error');
       return { creations: fallbackFromCache, isFromAI: false, error: 'API error - using cached content' };
@@ -787,7 +856,7 @@ Return 1-3 high-quality slang items in the specified JSON format. Quality over q
     
     console.log('Using predefined fallback due to error');
     return { 
-      creations: getFallbackCreations(vibe), 
+      creations: getFallbackCreations(vibeTags[0]), 
       isFromAI: false,
       error: error.message || 'Unknown API error'
     };
