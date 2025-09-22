@@ -297,12 +297,19 @@ const Account = () => {
                       </div>
                     </div>
                   ))}
-                  <Button variant="outline" size="sm" asChild className="w-full">
-                    <Link to="/history?tab=creations">
-                      View All Creations
-                      <ArrowRight className="w-4 h-4 ml-1" />
-                    </Link>
-                  </Button>
+                  <div className="grid grid-cols-1 gap-2">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to="/account/creations">
+                        View with Tracking
+                        <ArrowRight className="w-4 h-4 ml-1" />
+                      </Link>
+                    </Button>
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to="/history?tab=creations" className="text-muted-foreground">
+                        View All Creations
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-4">

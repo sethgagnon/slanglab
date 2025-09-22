@@ -18,6 +18,7 @@ import SlangDetail from "./pages/SlangDetail";
 import TermDetail from "./pages/TermDetail";
 import ProMentions from "./pages/ProMentions";
 import NotFound from "./pages/NotFound";
+import AccountCreations from "./pages/AccountCreations";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/slang-lab" element={<SlangLab />} />
             <Route path="/history" element={<History />} />
             <Route path="/account" element={<Account />} />
+            <Route path="/account/creations" element={<AccountCreations />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/admin/sources" element={<AdminSources />} />
             <Route path="/dev/health" element={<DevHealth />} />
