@@ -888,6 +888,7 @@ export type Database = {
       }
       secure_personal_info: {
         Row: {
+          age_band: string | null
           age_verified: boolean | null
           birth_date: string | null
           created_at: string
@@ -898,6 +899,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          age_band?: string | null
           age_verified?: boolean | null
           birth_date?: string | null
           created_at?: string
@@ -908,6 +910,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          age_band?: string | null
           age_verified?: boolean | null
           birth_date?: string | null
           created_at?: string
@@ -1450,6 +1453,14 @@ export type Database = {
       cleanup_old_data: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      compute_age_band: {
+        Args: { birth_date_input: string }
+        Returns: string
+      }
+      get_age_policy: {
+        Args: { target_user_id: string }
+        Returns: Json
       }
       get_secure_user_profile: {
         Args: { target_user_id: string }
