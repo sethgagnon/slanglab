@@ -41,6 +41,54 @@ export type Database = {
         }
         Relationships: []
       }
+      alerts: {
+        Row: {
+          created_at: string
+          id: string
+          last_notified_at: string | null
+          rule: Json
+          term_id: string
+          threshold: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_notified_at?: string | null
+          rule?: Json
+          term_id: string
+          threshold?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_notified_at?: string | null
+          rule?: Json
+          term_id?: string
+          threshold?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alerts_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "terms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alerts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       anonymous_searches: {
         Row: {
           anonymized_ip: string | null
@@ -705,6 +753,59 @@ export type Database = {
           },
         ]
       }
+      sightings: {
+        Row: {
+          created_at: string
+          first_seen_at: string
+          id: string
+          lang: string
+          last_seen_at: string
+          match_type: string
+          score: number
+          snippet: string
+          source: string
+          term_id: string
+          title: string | null
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          lang?: string
+          last_seen_at?: string
+          match_type?: string
+          score?: number
+          snippet: string
+          source: string
+          term_id: string
+          title?: string | null
+          url: string
+        }
+        Update: {
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          lang?: string
+          last_seen_at?: string
+          match_type?: string
+          score?: number
+          snippet?: string
+          source?: string
+          term_id?: string
+          title?: string | null
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sightings_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       slang_shares: {
         Row: {
           created_at: string
@@ -838,26 +939,113 @@ export type Database = {
           },
         ]
       }
+      term_variants: {
+        Row: {
+          created_at: string
+          id: string
+          term_id: string
+          variant_text: string
+          variant_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          term_id: string
+          variant_text: string
+          variant_type?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          term_id?: string
+          variant_text?: string
+          variant_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "term_variants_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       terms: {
         Row: {
           created_at: string
           id: string
           normalized_text: string
+          original_text: string
+          slug: string
           text: string
+          user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           normalized_text: string
+          original_text: string
+          slug: string
           text: string
+          user_id: string
         }
         Update: {
           created_at?: string
           id?: string
           normalized_text?: string
+          original_text?: string
+          slug?: string
           text?: string
+          user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "terms_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      trackers: {
+        Row: {
+          created_at: string
+          last_run_at: string | null
+          schedule_cron: string
+          sensitivity: string
+          sources_enabled: Json
+          term_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          last_run_at?: string | null
+          schedule_cron?: string
+          sensitivity?: string
+          sources_enabled?: Json
+          term_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          last_run_at?: string | null
+          schedule_cron?: string
+          sensitivity?: string
+          sources_enabled?: Json
+          term_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trackers_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: true
+            referencedRelation: "terms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_strikes: {
         Row: {
