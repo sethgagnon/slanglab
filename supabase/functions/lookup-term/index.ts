@@ -18,7 +18,7 @@ serve(async (req) => {
   let sessionId = null;
 
   try {
-    // Rate limiting for anonymous users
+    // Get client IP and auth info
     const clientIP = req.headers.get('x-forwarded-for')?.split(',')[0] || 
                      req.headers.get('x-real-ip') || 'unknown';
     
@@ -30,22 +30,32 @@ serve(async (req) => {
     // Store request context for API logging
     globalThis.currentRequest = req;
 
-    // Check rate limit for anonymous users
-    const { data: rateLimitOk } = await supabase.rpc('check_edge_function_rate_limit', {
-      identifier: `lookup-term:${clientIP}`,
-      max_requests: 50,
-      window_minutes: 60
-    });
-    
-    if (!rateLimitOk) {
-      console.log('Rate limit exceeded for IP:', clientIP);
-      return new Response(
-        JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-        { 
-          status: 429, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+    // Check auth header to determine if user is authenticated
+    const authHeader = req.headers.get('authorization');
+    const isAuthenticated = authHeader && authHeader.startsWith('Bearer ');
+
+    // Only apply IP-based rate limiting for anonymous users
+    if (!isAuthenticated) {
+      const { data: rateLimitOk } = await supabase.rpc('check_edge_function_rate_limit', {
+        p_identifier: clientIP,
+        p_function_name: 'lookup-term',
+        p_max_requests: 10, // Lower limit for anonymous users
+        p_window_minutes: 60
+      });
+      
+      if (!rateLimitOk) {
+        console.log('Rate limit exceeded for IP:', clientIP);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Rate limit exceeded. Please try again later.',
+            code: 'RATE_LIMIT_EXCEEDED'
+          }),
+          { 
+            status: 429, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
     }
 
     const { term } = await req.json();

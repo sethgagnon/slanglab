@@ -496,6 +496,36 @@ export type Database = {
         }
         Relationships: []
       }
+      edge_function_rate_limits: {
+        Row: {
+          created_at: string
+          function_name: string
+          id: string
+          identifier: string
+          request_count: number
+          updated_at: string
+          window_start: string
+        }
+        Insert: {
+          created_at?: string
+          function_name: string
+          id?: string
+          identifier: string
+          request_count?: number
+          updated_at?: string
+          window_start: string
+        }
+        Update: {
+          created_at?: string
+          function_name?: string
+          id?: string
+          identifier?: string
+          request_count?: number
+          updated_at?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       favorites: {
         Row: {
           created_at: string
@@ -1351,9 +1381,10 @@ export type Database = {
       }
       check_edge_function_rate_limit: {
         Args: {
-          identifier: string
-          max_requests?: number
-          window_minutes?: number
+          p_function_name?: string
+          p_identifier: string
+          p_max_requests?: number
+          p_window_minutes?: number
         }
         Returns: boolean
       }
