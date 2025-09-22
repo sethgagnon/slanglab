@@ -40,6 +40,8 @@ serve(async (req) => {
 
     const authHeader = req.headers.get('authorization');
     let userId = null;
+    let userPlan = 'free';
+    let userRole = 'member';
 
     // Check authentication and usage limits
     if (authHeader) {
@@ -54,20 +56,20 @@ serve(async (req) => {
       if (user) {
         userId = user.id;
         
-        // Check usage limits - weekly for free users
+        // Get user profile info
         const { data: profile } = await supabase
           .from('profiles')
           .select('plan, role')
           .eq('user_id', userId)
           .single();
 
-        const plan = profile?.plan || 'free';
-        const role = profile?.role;
+        userPlan = profile?.plan || 'free';
+        userRole = profile?.role || 'member';
         
         // Admin users have unlimited generations
-        if (role === 'admin') {
+        if (userRole === 'admin') {
           // Skip all limits for admin users
-        } else if (plan === 'labpro') {
+        } else if (userPlan === 'labpro') {
           // LabPro users: 1 AI generation per day
           const today = new Date().toISOString().split('T')[0];
           
@@ -117,13 +119,39 @@ serve(async (req) => {
       }
     }
 
-    // Generate slang using OpenAI
+    // Smart cache strategy check
+    const { shouldUseCache, cacheEntry } = await checkCacheStrategy(userId, vibe, userPlan, userRole);
+    
+    if (shouldUseCache && cacheEntry) {
+      console.log('Using cached content for user:', userId);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          creations: cacheEntry.phrases,
+          message: 'Generated successfully (optimized)',
+          cached: true,
+          isFromAI: false
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200 
+        }
+      );
+    }
+
+    // Generate fresh AI content
+    console.log('Generating fresh AI content for user:', userId);
     const result = await generateSlang(vibe);
     console.log('Generated result:', result);
 
     // Moderate the generated content
     const moderatedCreations = await moderateCreations(result.creations);
     console.log('Moderated creations:', moderatedCreations);
+
+    // Save to cache if we got AI content
+    if (result.isFromAI && moderatedCreations.length > 0) {
+      await saveToCacheDatabase(vibe, moderatedCreations);
+    }
 
     // Save to database if user is authenticated
     if (userId) {
@@ -156,10 +184,149 @@ serve(async (req) => {
   }
 });
 
+// Smart cache strategy function
+async function checkCacheStrategy(userId: string | null, vibe: string, userPlan: string, userRole: string) {
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Admin users get fresh content
+    if (userRole === 'admin') {
+      return { shouldUseCache: false, cacheEntry: null };
+    }
+
+    // Anonymous users get high cache hit rate
+    if (!userId) {
+      const shouldUseCache = Math.random() < 0.8; // 80% cache for anonymous
+      if (!shouldUseCache) return { shouldUseCache: false, cacheEntry: null };
+    } else {
+      // Get user cache preference
+      const { data: preference } = await supabase
+        .from('user_generation_preferences')
+        .select('cache_preference')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      const cachePreference = preference?.cache_preference || 'balanced';
+
+      // Define cache hit rates based on plan and preference
+      let cacheHitRate = 0.5; // Default balanced
+      if (userPlan === 'free') {
+        cacheHitRate = cachePreference === 'fresh' ? 0.4 : 0.7;
+      } else if (userPlan === 'searchpro') {
+        cacheHitRate = cachePreference === 'fresh' ? 0.3 : 0.5;
+      } else if (userPlan === 'labpro') {
+        cacheHitRate = cachePreference === 'fresh' ? 0.2 : 0.3;
+      }
+
+      // Random decision based on cache hit rate
+      const shouldUseCache = Math.random() < cacheHitRate;
+      
+      if (!shouldUseCache) {
+        return { shouldUseCache: false, cacheEntry: null };
+      }
+    }
+
+    // Clean expired cache entries first
+    await supabase
+      .from('slang_cache')
+      .delete()
+      .lt('expires_at', new Date().toISOString());
+
+    // Try to get high-quality cached content
+    const { data: cacheEntry } = await supabase
+      .from('slang_cache')
+      .select('*')
+      .eq('vibe', vibe)
+      .gt('expires_at', new Date().toISOString())
+      .order('quality_score', { ascending: false })
+      .order('usage_count', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (cacheEntry) {
+      // Update usage count and extend expiry
+      await supabase
+        .from('slang_cache')
+        .update({ 
+          usage_count: cacheEntry.usage_count + 1,
+          expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() // Extend by 2 hours
+        })
+        .eq('id', cacheEntry.id);
+      
+      return { shouldUseCache: true, cacheEntry };
+    }
+
+    return { shouldUseCache: false, cacheEntry: null };
+  } catch (error) {
+    console.error('Error in cache strategy:', error);
+    return { shouldUseCache: false, cacheEntry: null };
+  }
+}
+
+// Function to save content to cache
+async function saveToCacheDatabase(vibe: string, creations: any[]) {
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Don't save if we don't have enough creations
+    if (!creations || creations.length === 0) {
+      return;
+    }
+
+    // Save new cache entry
+    await supabase
+      .from('slang_cache')
+      .insert({
+        vibe,
+        phrases: creations,
+        quality_score: 5, // Start with medium quality
+        expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString() // 1 hour expiry
+      });
+      
+    console.log(`Saved ${creations.length} creations to cache for vibe: ${vibe}`);
+  } catch (error) {
+    console.error('Error saving to cache:', error);
+  }
+}
+
+// Function to get fallback from cache
+async function getFallbackFromCache(vibe: string): Promise<any[] | null> {
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { data: cacheEntry } = await supabase
+      .from('slang_cache')
+      .select('phrases')
+      .eq('vibe', vibe)
+      .order('quality_score', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+      
+    return cacheEntry?.phrases || null;
+  } catch (error) {
+    console.error('Error getting fallback from cache:', error);
+    return null;
+  }
+}
+
 async function generateSlang(vibe: string, retryCount = 0): Promise<{ creations: any[], isFromAI: boolean, error?: string }> {
   const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
   if (!openaiApiKey) {
     console.error('OpenAI API key not configured');
+    // Try cache fallback first
+    const fallbackFromCache = await getFallbackFromCache(vibe);
+    if (fallbackFromCache) {
+      return { creations: fallbackFromCache, isFromAI: false, error: 'OpenAI API key not configured - using cached content' };
+    }
     return { 
       creations: getFallbackCreations(vibe), 
       isFromAI: false,
@@ -207,7 +374,7 @@ Return only the JSON array, no other text.`;
             content: prompt
           }
         ],
-        max_completion_tokens: 1500,
+        max_completion_tokens: 1000, // Reduced from 1500 for cost optimization
       }),
     });
     const apiCallEnd = Date.now();
@@ -237,7 +404,14 @@ Return only the JSON array, no other text.`;
         return generateSlang(vibe, retryCount + 1);
       }
       
-      // Return fallback with specific error info
+      // Enhanced fallback - try cache first, then predefined
+      const fallbackFromCache = await getFallbackFromCache(vibe);
+      if (fallbackFromCache) {
+        console.log('Using cache fallback');
+        return { creations: fallbackFromCache, isFromAI: false, error: 'OpenAI API error - using cached content' };
+      }
+      
+      console.log('Using predefined fallback');
       const errorMsg = response.status === 429 
         ? 'OpenAI rate limit exceeded. Using creative fallback content.' 
         : `OpenAI API error: ${response.status}`;
@@ -279,6 +453,13 @@ Return only the JSON array, no other text.`;
       return { creations, isFromAI: true };
     } catch (parseError) {
       console.error('Failed to parse OpenAI response:', content);
+      
+      // Try cache fallback before predefined
+      const fallbackFromCache = await getFallbackFromCache(vibe);
+      if (fallbackFromCache) {
+        return { creations: fallbackFromCache, isFromAI: false, error: 'Invalid AI response - using cached content' };
+      }
+      
       return { 
         creations: getFallbackCreations(vibe), 
         isFromAI: false,
@@ -287,6 +468,15 @@ Return only the JSON array, no other text.`;
     }
   } catch (error) {
     console.error('OpenAI API error:', error);
+    
+    // Enhanced fallback - try cache first, then predefined
+    const fallbackFromCache = await getFallbackFromCache(vibe);
+    if (fallbackFromCache) {
+      console.log('Using cache fallback due to error');
+      return { creations: fallbackFromCache, isFromAI: false, error: 'API error - using cached content' };
+    }
+    
+    console.log('Using predefined fallback due to error');
     return { 
       creations: getFallbackCreations(vibe), 
       isFromAI: false,
@@ -296,7 +486,7 @@ Return only the JSON array, no other text.`;
 }
 
 function getFallbackCreations(vibe: string) {
-  // Return vibe-specific fallbacks where possible
+  // Enhanced fallback collections with more variety
   const vibeSpecificFallbacks = {
     'praise': [
       {
@@ -351,10 +541,41 @@ function getFallbackCreations(vibe: string) {
         meaning: 'someone who builds and maintains incredible forward progress in any situation',
         example: 'The momentum master has us moving from zero to hero in record time.'
       }
+    ],
+    'food': [
+      {
+        phrase: 'flavor architect',
+        meaning: 'someone with exceptional taste who creates amazing culinary experiences and combinations',
+        example: 'This meal is incredible - you\'re such a flavor architect with these pairings.'
+      },
+      {
+        phrase: 'seasoning specialist',
+        meaning: 'a person who perfectly balances flavors and knows exactly what every dish needs',
+        example: 'Ask the seasoning specialist - they always know how to fix any recipe.'
+      },
+      {
+        phrase: 'culinary curator',
+        meaning: 'someone who expertly selects and presents food that creates memorable dining experiences',
+        example: 'Thanks to our culinary curator, this dinner party is absolutely perfect.'
+      },
+      {
+        phrase: 'taste conductor',
+        meaning: 'a person who orchestrates flavors and ingredients like a symphony in the kitchen',
+        example: 'Watch the taste conductor work - every dish is a harmonious masterpiece.'
+      },
+      {
+        phrase: 'recipe wizard',
+        meaning: 'someone with magical abilities to create delicious meals from whatever ingredients available',
+        example: 'The recipe wizard just made gourmet dinner from random fridge leftovers.'
+      }
     ]
   };
 
-  return vibeSpecificFallbacks[vibe as keyof typeof vibeSpecificFallbacks] || [
+  const fallbacks = vibeSpecificFallbacks[vibe as keyof typeof vibeSpecificFallbacks];
+  if (fallbacks) return fallbacks;
+
+  // Default fallbacks for other vibes
+  return [
     {
       phrase: 'chaos coordinator',
       meaning: 'someone who thrives in messy situations and somehow makes everything work perfectly',

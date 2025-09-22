@@ -1061,6 +1061,36 @@ export type Database = {
           },
         ]
       }
+      slang_cache: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          phrases: Json
+          quality_score: number | null
+          usage_count: number | null
+          vibe: string
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          phrases: Json
+          quality_score?: number | null
+          usage_count?: number | null
+          vibe: string
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          phrases?: Json
+          quality_score?: number | null
+          usage_count?: number | null
+          vibe?: string
+        }
+        Relationships: []
+      }
       slang_shares: {
         Row: {
           created_at: string
@@ -1302,6 +1332,27 @@ export type Database = {
           },
         ]
       }
+      user_generation_preferences: {
+        Row: {
+          cache_preference: string | null
+          created_at: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          cache_preference?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          cache_preference?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_strikes: {
         Row: {
           admin_id: string
@@ -1391,6 +1442,10 @@ export type Database = {
       check_profile_access_rate_limit: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      cleanup_expired_cache: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       cleanup_old_data: {
         Args: Record<PropertyKey, never>
