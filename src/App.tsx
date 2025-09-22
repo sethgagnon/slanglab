@@ -15,6 +15,8 @@ import AdminSources from "./pages/AdminSources";
 import DevHealth from "./pages/DevHealth";
 import Leaderboard from "./pages/Leaderboard";
 import SlangDetail from "./pages/SlangDetail";
+import TermDetail from "./pages/TermDetail";
+import ProMentions from "./pages/ProMentions";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +40,8 @@ const App = () => (
             <Route path="/dev/health" element={<DevHealth />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/slang/:id" element={<SlangDetail />} />
+            <Route path="/t/:slug" element={<TermDetail />} />
+            <Route path="/pro/mentions" element={<ProMentions />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
