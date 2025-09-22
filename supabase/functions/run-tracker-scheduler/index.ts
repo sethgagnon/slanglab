@@ -58,9 +58,7 @@ serve(async (req) => {
         // Call the run_tracker function for this specific tracker
         const { data: result, error: runError } = await supabase.functions.invoke('run_tracker', {
           body: {
-            termId: tracker.term_id,
-            sources: tracker.sources_enabled,
-            sensitivity: tracker.sensitivity
+            term_id: tracker.term_id
           }
         });
 
