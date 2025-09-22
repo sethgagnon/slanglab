@@ -39,11 +39,6 @@ const AccountCreations = () => {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [selectedCreation, setSelectedCreation] = useState<any>(null);
 
-  if (!user) {
-    navigate('/auth');
-    return null;
-  }
-
   const handleShare = (creation: any) => {
     setSelectedCreation(creation);
     setShareModalOpen(true);
