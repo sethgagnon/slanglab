@@ -17,7 +17,8 @@ import {
   Trash2,
   Eye,
   CheckCircle,
-  XCircle
+  XCircle,
+  Play
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -53,6 +54,7 @@ const Admin = () => {
   const [newDomain, setNewDomain] = useState('');
   const [newDomainStatus, setNewDomainStatus] = useState<'allow' | 'deny'>('allow');
   const [newBannedTerm, setNewBannedTerm] = useState('');
+  const [isRunningTracker, setIsRunningTracker] = useState(false);
   const { user, signOut, isAdmin } = useAuth();
   const { toast } = useToast();
 
@@ -179,6 +181,40 @@ const Admin = () => {
     });
   };
 
+  const runTrackerScheduler = async () => {
+    setIsRunningTracker(true);
+    try {
+      const response = await fetch('https://zzegeatnzvoqhgffqfln.supabase.co/functions/v1/run-tracker-scheduler', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp6ZWdlYXRuenZvcWhnZmZxZmxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNDYzMTQsImV4cCI6MjA3MzgyMjMxNH0.kwq5HsA1ynoRNGpEaLlm9dK09nh9eAylhjIaI1GNQXM'}`,
+        },
+        body: JSON.stringify({})
+      });
+
+      const result = await response.json();
+      
+      if (response.ok) {
+        toast({
+          title: "Tracker Scheduler Run Complete",
+          description: `Successfully processed ${result.successCount} trackers. ${result.errorCount} errors.`,
+        });
+      } else {
+        throw new Error(result.error || 'Failed to run tracker scheduler');
+      }
+    } catch (error) {
+      console.error('Error running tracker scheduler:', error);
+      toast({
+        title: "Error",
+        description: "Failed to run tracker scheduler. Check the console for details.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRunningTracker(false);
+    }
+  };
+
   return (
     <ProtectedFeature config={{ requiresAdmin: true }} showCard={false}>
       <div className="min-h-screen bg-background">
@@ -231,10 +267,11 @@ const Admin = () => {
 
           {/* Tabs */}
           <Tabs defaultValue="reports" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="reports">Reports</TabsTrigger>
               <TabsTrigger value="sources">Source Rules</TabsTrigger>
               <TabsTrigger value="banned">Banned Terms</TabsTrigger>
+              <TabsTrigger value="testing">Testing</TabsTrigger>
               <TabsTrigger value="logs">Moderation Logs</TabsTrigger>
             </TabsList>
 
@@ -412,6 +449,43 @@ const Admin = () => {
                           </Button>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Testing Tab */}
+            <TabsContent value="testing" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Manual Testing</CardTitle>
+                  <CardDescription>Manually trigger system functions for testing purposes</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="border rounded-lg p-4">
+                      <h3 className="font-semibold mb-3">Tracker System</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Manually run the tracker scheduler to test SerpAPI and Google Custom Search integration without waiting for the cron job.
+                      </p>
+                      <Button 
+                        onClick={runTrackerScheduler}
+                        disabled={isRunningTracker}
+                        className="w-full sm:w-auto"
+                      >
+                        {isRunningTracker ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                            Running Trackers...
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-4 w-4 mr-2" />
+                            Run Tracker Scheduler
+                          </>
+                        )}
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
