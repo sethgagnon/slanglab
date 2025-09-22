@@ -69,7 +69,6 @@ serve(async (req) => {
     }
 
     // Check usage limits
-    const authHeader = req.headers.get('authorization');
     const clientInfo = req.headers.get('x-client-info');
     
     if (authHeader) {
