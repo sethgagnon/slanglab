@@ -22,7 +22,8 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { SharePanel } from '@/components/SharePanel';
+import { ShareTrackModal } from '@/components/ShareTrackModal';
+import type { Creation as ShareCreation } from '@/hooks/useCreations';
 import { SlangMonitoringDashboard } from '@/components/SlangMonitoringDashboard';
 import LeaderboardWidget from '@/components/LeaderboardWidget';
 import { useUsageStats } from '@/hooks/useUsageStats';
@@ -42,6 +43,7 @@ interface Creation {
   votes: number;
   creation_type?: string;
   vibe?: string;
+  created_at: string;
 }
 
 const VIBES = [
@@ -58,6 +60,8 @@ const SlangLab = () => {
   const [creations, setCreations] = useState<Creation[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [showAgeVerification, setShowAgeVerification] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [creationToShare, setCreationToShare] = useState<ShareCreation | null>(null);
   const [generationStatus, setGenerationStatus] = useState<{
     isFromAI: boolean;
     message: string;
@@ -508,22 +512,30 @@ const SlangLab = () => {
                             </div>
                           </div>
 
-                          {/* Share Panel for LabPro users */}
+                          {/* Share & Track for LabPro users */}
                           {isLabPro && user && (
                             <div className="border-t border-border pt-3">
                               <p className="text-xs text-muted-foreground mb-2">Share your creation:</p>
-                              <SharePanel 
-                                creation={{
-                                  id: creation.id,
-                                  phrase: creation.phrase,
-                                  meaning: creation.meaning,
-                                  example: creation.example,
-                                  vibe: selectedVibe,
-                                  created_at: new Date().toISOString(),
-                                  creation_type: 'ai'
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  setCreationToShare({
+                                    id: creation.id,
+                                    phrase: creation.phrase,
+                                    meaning: creation.meaning,
+                                    example: creation.example,
+                                    vibe: selectedVibe,
+                                    created_at: new Date().toISOString(),
+                                    creation_type: 'ai'
+                                  } as ShareCreation);
+                                  setShareModalOpen(true);
                                 }}
-                                userId={user.id}
-                              />
+                                className="w-full"
+                              >
+                                <Sparkles className="h-4 w-4 mr-2" />
+                                Share & Track
+                              </Button>
                             </div>
                           )}
                         </div>
@@ -583,6 +595,20 @@ const SlangLab = () => {
           open={showAgeVerification}
           onVerificationComplete={handleAgeVerificationComplete}
           userId={user.id}
+        />
+      )}
+      
+      {/* Share & Track Modal */}
+      {creationToShare && user && (
+        <ShareTrackModal
+          open={shareModalOpen}
+          onOpenChange={(open) => {
+            setShareModalOpen(open);
+            if (!open) setCreationToShare(null);
+          }}
+          creation={creationToShare}
+          userId={user.id}
+          hasLabProAccess={hasLabProAccess}
         />
       )}
     </div>

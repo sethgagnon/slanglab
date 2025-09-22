@@ -20,6 +20,7 @@ export type SharePlatform =
   | 'linkedin' 
   | 'whatsapp' 
   | 'telegram' 
+  | 'youtube'
   | 'web_share' 
   | 'copy_link';
 
@@ -30,6 +31,17 @@ export const detectWebShareSupport = (): boolean => {
 export const detectMobile = (): boolean => {
   return typeof window !== 'undefined' && 
     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
+export const appendUTMs = (url: string, platform: SharePlatform): string => {
+  const utmParams = new URLSearchParams({
+    utm_source: platform,
+    utm_medium: 'share',
+    utm_campaign: 'creator_share'
+  });
+  
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}${utmParams.toString()}`;
 };
 
 export const generateShareContent = (creation: Creation) => {
@@ -44,6 +56,11 @@ export const generateShareContent = (creation: Creation) => {
   };
 
   return content;
+};
+
+export const generateCopyCaption = (creation: Creation): string => {
+  const content = generateShareContent(creation);
+  return `${content.title}\n\n${content.text}\n\n${content.url}\n\n#${content.hashtags.join(' #')}`;
 };
 
 export const formatForPlatform = (creation: Creation, platform: SharePlatform) => {
@@ -143,7 +160,9 @@ export const openApp = (deepLink: string): void => {
 
 export const getShareUrls = (creation: Creation) => {
   const baseContent = generateShareContent(creation);
-  const encodedUrl = encodeURIComponent(baseContent.url);
+  const shareUrlWithUTM = (platform: SharePlatform) => appendUTMs(baseContent.url, platform);
+  
+  const encodedUrl = (platform: SharePlatform) => encodeURIComponent(shareUrlWithUTM(platform));
   const encodedTitle = encodeURIComponent(baseContent.title);
   
   // Format content for all platforms consistently
@@ -155,11 +174,13 @@ export const getShareUrls = (creation: Creation) => {
   const telegramContent = formatForPlatform(creation, 'telegram') as { text: string };
   
   return {
-    twitter: `https://x.com/intent/tweet?text=${encodeURIComponent(twitterContent.text)}&url=${encodeURIComponent(twitterContent.url)}&hashtags=${twitterContent.hashtags}`,
-    facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodeURIComponent(facebookContent.text)}`,
-    reddit: `https://reddit.com/submit?url=${encodedUrl}&title=${encodeURIComponent(redditContent.title)}&text=${encodeURIComponent(redditContent.text)}`,
-    linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}&title=${encodedTitle}&summary=${encodeURIComponent(linkedinContent.text)}`,
+    twitter: `https://x.com/intent/tweet?text=${encodeURIComponent(twitterContent.text)}&url=${encodedUrl('twitter')}&hashtags=${twitterContent.hashtags}`,
+    facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl('facebook')}`,
+    reddit: `https://reddit.com/submit?url=${encodedUrl('reddit')}&title=${encodeURIComponent(redditContent.title)}`,
+    linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl('linkedin')}&title=${encodedTitle}&summary=${encodeURIComponent(linkedinContent.text)}`,
     whatsapp: `https://web.whatsapp.com/send?text=${encodeURIComponent(whatsappContent.text)}`,
-    telegram: `https://t.me/share/url?url=${encodedUrl}&text=${encodeURIComponent(telegramContent.text)}`,
+    telegram: `https://t.me/share/url?url=${encodedUrl('telegram')}&text=${encodeURIComponent(telegramContent.text)}`,
+    youtube: shareUrlWithUTM('youtube'), // For copy functionality
+    snapchat: shareUrlWithUTM('snapchat'), // For Snapchat Creative Kit
   };
 };

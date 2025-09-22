@@ -26,7 +26,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useCreations } from '@/hooks/useCreations';
-import { SharePanel } from '@/components/SharePanel';
+import { useUsageStats } from '@/hooks/useUsageStats';
+import { ShareTrackModal } from '@/components/ShareTrackModal';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,9 +66,12 @@ const History = () => {
   const [dateFilter, setDateFilter] = useState('all');
   const [lookups, setLookups] = useState<HistoryItem[]>([]);
   const [favorites, setFavorites] = useState<HistoryItem[]>([]);
+  const [selectedCreation, setSelectedCreation] = useState<Creation | null>(null);
   const { user, loading: authLoading, signOut } = useAuth();
   const { toast } = useToast();
   const { creations, loading: creationsLoading, refresh: refreshCreations, deleteCreation } = useCreations();
+  const usageStats = useUsageStats();
+  const hasLabProAccess = usageStats?.plan === 'labpro' || usageStats?.isAdmin;
 
   useEffect(() => {
     if (user) {
@@ -584,14 +588,15 @@ const History = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <SharePanel 
-                            creation={{
-                              ...creation,
-                              vibe: creation.vibe || 'cool'
-                            }} 
-                            userId={user.id}
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setSelectedCreation(creation)}
                             className="ml-4"
-                          />
+                          >
+                            <Share2 className="h-4 w-4 mr-2" />
+                            Share & Track
+                          </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="sm">
@@ -627,6 +632,17 @@ const History = () => {
         </Tabs>
       </div>
     </div>
+    
+    {/* Share & Track Modal */}
+    {selectedCreation && user && (
+      <ShareTrackModal
+        open={!!selectedCreation}
+        onOpenChange={(open) => !open && setSelectedCreation(null)}
+        creation={selectedCreation}
+        userId={user.id}
+        hasLabProAccess={hasLabProAccess}
+      />
+    )}
     </>
   );
 };

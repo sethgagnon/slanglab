@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { SharePanel } from '@/components/SharePanel';
+import { ShareTrackModal } from '@/components/ShareTrackModal';
 import { ArrowLeft, Calendar, Sparkles } from 'lucide-react';
 import { Creation } from '@/lib/shareUtils';
 import { SEOHead, createSlangEntrySchema } from '@/components/SEOHead';
@@ -14,6 +14,7 @@ const SlangDetail: React.FC = () => {
   const navigate = useNavigate();
   const [creation, setCreation] = useState<Creation | null>(null);
   const [loading, setLoading] = useState(true);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -194,7 +195,13 @@ const SlangDetail: React.FC = () => {
                 <div className="border-t pt-6">
                   <div className="text-center space-y-4">
                     <h3 className="text-lg font-semibold">Share This Slang</h3>
-                    <SharePanel creation={creation} userId={null} />
+                    <Button 
+                      onClick={() => setShareModalOpen(true)}
+                      className="w-full max-w-sm"
+                    >
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Share & Track
+                    </Button>
                   </div>
                 </div>
 
@@ -216,6 +223,17 @@ const SlangDetail: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      {/* Share & Track Modal */}
+      {creation && (
+        <ShareTrackModal
+          open={shareModalOpen}
+          onOpenChange={setShareModalOpen}
+          creation={creation}
+          userId={creation.id} // Use creation ID as fallback since no user context
+          hasLabProAccess={false} // Public page, no LabPro access
+        />
+      )}
     </>
   );
 };
