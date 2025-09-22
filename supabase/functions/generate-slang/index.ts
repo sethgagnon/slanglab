@@ -7,13 +7,233 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const VIBES = {
-  'praise': 'Create 5 innovative compliment slang phrases that Gen Z would actually use. Think viral TikTok energy, creative wordplay, and internet culture mashups. Use sound symbolism, puns, and fresh combinations. Examples: "chef\'s kiss energy", "main character moment". Make them feel authentic and shareable.',
-  'hype': 'Generate 5 high-energy hype phrases that capture internet excitement culture. Think gaming victories, concert energy, and viral moment vibes. Use creative compounds, onomatopoeia, and pop culture references. Examples: "elite mode activated", "legendary status unlocked". Make them explosive and memorable.',
-  'food': 'Create 5 food-inspired slang phrases that blend culinary culture with modern internet language. Think foodie influencer meets Gen Z creativity. Use cooking metaphors, flavor descriptions, and restaurant culture. Examples: "seasoned to perfection", "chef mode activated". Make them deliciously creative.',
-  'compliment': 'Generate 5 next-level compliment phrases that sound fresh and genuine. Blend aesthetic trends, personality archetypes, and positive psychology. Use creative metaphors and contemporary references. Examples: "cottagecore queen", "golden retriever energy". Make them feel personal and uplifting.',
-  'gentle-roast': 'Create 5 witty but affectionate teasing phrases that show love through playful shade. Think best friend banter and sibling energy. Use clever wordplay and harmless absurdity. Examples: "lovable chaos gremlin", "certified overthinker". Keep them endearing and fun.',
+// Phase 1: Safety Backbone + Age Controls - Enhanced Content Policy
+type AgeBand = '11-13' | '14-17' | '18-22';
+
+interface AgePolicy {
+  ageBand: AgeBand;
+  requireSchoolSafe: boolean;
+  maxCreativity: number;
+  allowedFormats: string[];
+  allowedContexts: string[];
+  canShare: boolean;
+}
+
+// Enhanced content blocklist with leetspeak and age-specific filtering
+const CONTENT_BLOCKLIST = [
+  // Profanity and slurs
+  'fuck', 'shit', 'bitch', 'damn', 'hell', 'ass', 'crap', 'piss',
+  'fck', 'sh*t', 'b*tch', 'd*mn', 'h*ll', '@ss', 'fuk', 'shyt',
+  
+  // Sexual content
+  'sex', 'sexy', 'hot', 'horny', 'porn', 'nude', 'naked', 'boobs', 'dick',
+  's3x', 's3xy', 'h0t', 'p0rn', 'n00ds', 'b00bs', 'd1ck',
+  
+  // Drugs and alcohol  
+  'drunk', 'wasted', 'high', 'stoned', 'blazed', 'lit', 'turnt',
+  'beer', 'wine', 'vodka', 'weed', 'pot', 'marijuana', 'joints', 'bong',
+  'd*nk', 'w33d', 'p0t', 'w33d', 'j01nts',
+  
+  // Violence and weapons
+  'kill', 'murder', 'gun', 'knife', 'weapon', 'shoot', 'stab', 'blood',
+  'k*ll', 'murd3r', 'sh00t', 'st@b', 'bl00d',
+  
+  // Self-harm and mental health
+  'suicide', 'depression', 'cutting', 'harm', 'hurt', 'death', 'die',
+  'su*c*de', 'd3pr3ss10n', 'cu77ing', 'd3@th',
+  
+  // Hate speech and discrimination
+  'hate', 'racist', 'nazi', 'terrorist', 'stupid', 'idiot', 'retard',
+  'h@te', 'rac*st', 'n@zi', 'stup1d', 'id10t', 'r3t@rd'
+];
+
+// Regex patterns for leetspeak and variations
+const CONTENT_BLOCKLIST_REGEX = [
+  /[s5][h3][i1][t7]/gi,           // shit variations
+  /[f][u][c][k]/gi,               // fuck variations  
+  /[b][i1][t7][c][h]/gi,          // bitch variations
+  /[a@][s5]{2,}/gi,               // ass variations
+  /[d][a@][m][n]/gi,              // damn variations
+  /[s5][e3][x]/gi,                // sex variations
+  /[p][o0][r][n]/gi,              // porn variations
+  /[w][e3]{2}[d]/gi,              // weed variations
+  /[k][i1][l]{2}/gi,              // kill variations
+  /[s5][h][o0]{2}[t7]/gi,         // shoot variations
+  /[0-9@$!#%^&*]{3,}/g           // Excessive special chars/numbers
+];
+
+// OpenAI Structured Output Schema for 1-3 safe items
+const slangJsonSchema = {
+  type: "object",
+  properties: {
+    slang_items: {
+      type: "array",
+      minItems: 1,
+      maxItems: 3,
+      items: {
+        type: "object",
+        properties: {
+          phrase: {
+            type: "string",
+            minLength: 1,
+            maxLength: 50,
+            description: "1-3 word slang phrase"
+          },
+          meaning: {
+            type: "string", 
+            minLength: 5,
+            maxLength: 100,
+            description: "Brief explanation (15-20 words maximum)"
+          },
+          example: {
+            type: "string",
+            minLength: 5,
+            maxLength: 150,
+            description: "Natural conversational sentence using the phrase"
+          }
+        },
+        required: ["phrase", "meaning", "example"],
+        additionalProperties: false
+      }
+    }
+  },
+  required: ["slang_items"],
+  additionalProperties: false
 };
+
+// Age-aware vibe prompts with enhanced safety
+const VIBES = {
+  'praise': 'Create innovative compliment slang phrases that are positive and uplifting. Focus on celebrating achievements, talents, and positive qualities. Use creative wordplay and fresh combinations. Keep language family-friendly and school-appropriate.',
+  'hype': 'Generate high-energy excitement phrases that capture enthusiasm and celebration. Think achievements, accomplishments, and positive moments. Use creative compounds and energetic language while maintaining appropriateness.',
+  'food': 'Create food-inspired slang phrases that blend culinary culture with modern language. Focus on cooking, flavors, and food experiences. Use appetizing metaphors and food culture references in a fun, clean way.',
+  'compliment': 'Generate fresh compliment phrases that sound genuine and positive. Focus on personality traits, talents, and positive characteristics. Use uplifting metaphors and encouraging language.',
+  'gentle-roast': 'Create witty but affectionate teasing phrases that show friendship through gentle humor. Think harmless, endearing observations about quirks and habits. Keep it loving and fun without any mean-spirited content.',
+};
+
+// Age-specific safety prompts
+function getAgeSafetyPrompt(ageBand: AgeBand, schoolSafe: boolean): string {
+  const baseRules = `
+Safety Rules (STRICTLY ENFORCED):
+- NO profanity, slurs, sexual content, harassment, or targeted insults
+- NO references to drugs, alcohol, violence, self-harm, or illegal activities  
+- NO hate speech, discrimination, or harmful stereotypes
+- Keep examples conversational and natural
+- Create positive, uplifting content only`;
+
+  const ageSpecificRules = {
+    '11-13': `
+${baseRules}
+- EXTRA SAFE: Content must be appropriate for middle school students
+- Focus on school, hobbies, friendship, and wholesome fun
+- Use simple, clear language
+- Educational or encouraging themes preferred`,
+    
+    '14-17': `
+${baseRules}
+- HIGH SCHOOL APPROPRIATE: Content suitable for teenagers
+- Can include pop culture, trends, and age-appropriate humor
+- School-safe language required
+- Focus on interests like music, sports, fashion, gaming`,
+    
+    '18-22': schoolSafe ? `
+${baseRules}
+- COLLEGE/WORKPLACE SAFE: Professional yet creative language
+- Can reference adult interests but keep family-friendly
+- Suitable for academic or work environments` : `
+${baseRules}
+- YOUNG ADULT APPROPRIATE: Creative but responsible language
+- Can be more expressive while maintaining respect
+- Still family-friendly but allows more sophisticated humor`
+  };
+
+  return ageSpecificRules[ageBand] || ageSpecificRules['11-13'];
+}
+
+// Function to get age policy from database (server-side enforcement)
+async function getServerAgePolicy(userId: string): Promise<AgePolicy> {
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  );
+
+  try {
+    const { data, error } = await supabase.rpc('get_age_policy', { 
+      target_user_id: userId 
+    });
+
+    if (error || !data) {
+      console.log('No age policy found, defaulting to safest (11-13)');
+      return {
+        ageBand: '11-13',
+        requireSchoolSafe: true,
+        maxCreativity: 0.6,
+        allowedFormats: ['word', 'short_phrase'],
+        allowedContexts: ['homework', 'food', 'sports', 'gaming', 'music', 'generic'],
+        canShare: false
+      };
+    }
+
+    return data as AgePolicy;
+  } catch (error) {
+    console.error('Error fetching age policy:', error);
+    // Default to safest policy on error
+    return {
+      ageBand: '11-13',
+      requireSchoolSafe: true,
+      maxCreativity: 0.6,
+      allowedFormats: ['word', 'short_phrase'],
+      allowedContexts: ['homework', 'food', 'sports', 'gaming', 'music', 'generic'],
+      canShare: false
+    };
+  }
+}
+
+// Input moderation using OpenAI
+async function moderateInput(text: string): Promise<{ flagged: boolean; reason?: string }> {
+  const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!openaiApiKey) {
+    console.warn('OpenAI API key not available for input moderation');
+    return { flagged: false };
+  }
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/moderations', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        input: text,
+        model: 'omni-moderation-latest'
+      }),
+    });
+
+    if (!response.ok) {
+      console.warn('Moderation API failed, allowing content');
+      return { flagged: false };
+    }
+
+    const data = await response.json();
+    const result = data.results?.[0];
+    
+    if (result?.flagged) {
+      const categories = Object.entries(result.categories)
+        .filter(([_, flagged]) => flagged)
+        .map(([category]) => category);
+      
+      return { 
+        flagged: true, 
+        reason: `Content flagged for: ${categories.join(', ')}` 
+      };
+    }
+
+    return { flagged: false };
+  } catch (error) {
+    console.error('Error in input moderation:', error);
+    return { flagged: false }; // Allow on error, rely on other safety measures
+  }
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -25,12 +245,32 @@ serve(async (req) => {
   globalThis.currentRequest = req;
 
   try {
-    // Enhanced input validation
+    // Enhanced input validation with age-aware parameters
     const body = await req.json();
-    const { vibe } = body;
+    const { 
+      vibe, 
+      ageBand: clientAgeBand, 
+      schoolSafe: clientSchoolSafe, 
+      creativity: clientCreativity,
+      format: clientFormat,
+      context: clientContext 
+    } = body;
     
     if (!vibe || typeof vibe !== 'string' || !VIBES[vibe as keyof typeof VIBES]) {
       return new Response(JSON.stringify({ error: 'Invalid vibe specified' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Input moderation check
+    const moderationResult = await moderateInput(vibe);
+    if (moderationResult.flagged) {
+      console.log('Input flagged by moderation:', moderationResult.reason);
+      return new Response(JSON.stringify({ 
+        error: 'Input contains inappropriate content. Please try a different request.',
+        reason: 'content_policy_violation'
+      }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -42,6 +282,7 @@ serve(async (req) => {
     let userId = null;
     let userPlan = 'free';
     let userRole = 'member';
+    let serverAgePolicy: AgePolicy;
 
     // Check authentication and usage limits
     if (authHeader) {
@@ -65,6 +306,9 @@ serve(async (req) => {
 
         userPlan = profile?.plan || 'free';
         userRole = profile?.role || 'member';
+        
+        // Get server-side age policy (AUTHORITATIVE - never trust client)
+        serverAgePolicy = await getServerAgePolicy(userId);
         
         // Admin users have unlimited generations
         if (userRole === 'admin') {
@@ -116,8 +360,43 @@ serve(async (req) => {
             });
           }
         }
+      } else {
+        // Anonymous user - default to safest policy
+        serverAgePolicy = {
+          ageBand: '11-13',
+          requireSchoolSafe: true,
+          maxCreativity: 0.6,
+          allowedFormats: ['word', 'short_phrase'],
+          allowedContexts: ['homework', 'food', 'sports', 'gaming', 'music', 'generic'],
+          canShare: false
+        };
       }
+    } else {
+      // No authentication - default to safest policy
+      serverAgePolicy = {
+        ageBand: '11-13',
+        requireSchoolSafe: true,
+        maxCreativity: 0.6,
+        allowedFormats: ['word', 'short_phrase'],
+        allowedContexts: ['homework', 'food', 'sports', 'gaming', 'music', 'generic'],
+        canShare: false
+      };
     }
+
+    // SERVER-SIDE POLICY ENFORCEMENT (Never trust client data)
+    console.log('Applying server-side age policy:', serverAgePolicy);
+    
+    const enforcedParams = {
+      ageBand: serverAgePolicy.ageBand,
+      creativity: Math.min(Math.max(clientCreativity ?? 0.7, 0.1), serverAgePolicy.maxCreativity),
+      schoolSafe: serverAgePolicy.requireSchoolSafe ? true : (clientSchoolSafe ?? true),
+      format: serverAgePolicy.allowedFormats.includes(clientFormat ?? 'word') ? 
+        clientFormat : serverAgePolicy.allowedFormats[0],
+      context: serverAgePolicy.allowedContexts.includes(clientContext ?? 'generic') ? 
+        clientContext : 'generic'
+    };
+
+    console.log('Enforced parameters:', enforcedParams);
 
     // Smart cache strategy check
     const { shouldUseCache, cacheEntry } = await checkCacheStrategy(userId, vibe, userPlan, userRole);
@@ -139,9 +418,9 @@ serve(async (req) => {
       );
     }
 
-    // Generate fresh AI content
+    // Generate fresh AI content with age-aware parameters
     console.log('Generating fresh AI content for user:', userId);
-    const result = await generateSlang(vibe);
+    const result = await generateSlang(vibe, enforcedParams);
     console.log('Generated result:', result);
 
     // Moderate the generated content
@@ -318,7 +597,17 @@ async function getFallbackFromCache(vibe: string): Promise<any[] | null> {
   }
 }
 
-async function generateSlang(vibe: string, retryCount = 0): Promise<{ creations: any[], isFromAI: boolean, error?: string }> {
+async function generateSlang(
+  vibe: string, 
+  params: {
+    ageBand: AgeBand;
+    creativity: number;
+    schoolSafe: boolean;
+    format?: string;
+    context?: string;
+  },
+  retryCount = 0
+): Promise<{ creations: any[], isFromAI: boolean, error?: string }> {
   const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
   if (!openaiApiKey) {
     console.error('OpenAI API key not configured');
@@ -335,28 +624,20 @@ async function generateSlang(vibe: string, retryCount = 0): Promise<{ creations:
   }
 
   const vibePrompt = VIBES[vibe as keyof typeof VIBES];
+  const ageSafetyPrompt = getAgeSafetyPrompt(params.ageBand, params.schoolSafe);
   
-  const prompt = `${vibePrompt}
+  const systemPrompt = `${vibePrompt}
 
-Return a JSON array with exactly 5 items. Each item should have:
-{ "phrase": string (1-3 words), "meaning": string (15-20 words maximum), "example": string (natural conversational sentence) }
+${ageSafetyPrompt}
 
 Creative Instructions:
-- Use wordplay, puns, alliteration, and sound patterns
-- Blend different linguistic styles (formal meets slang, tech meets poetry)
-- Reference internet culture, aesthetics, and contemporary vibes WITHOUT claiming they're trending
+- Use wordplay, puns, alliteration, and sound patterns appropriate for age group
 - Create compound words and fresh metaphors
-- Mix different formality levels for variety
 - Use sensory language and vivid imagery
 - Make each phrase feel distinct and memorable
+- Creativity level: ${params.creativity} (0.1 = very conservative, 1.0 = very creative)
 
-Safety Rules:
-- No profanity, slurs, sexual content, harassment, or targeted insults
-- Keep examples conversational and natural
-- Family-friendly but not childish
-- Avoid stereotypes or cultural appropriation
-
-Return only the JSON array, no other text.`;
+Return 1-3 high-quality slang items in the specified JSON format. Quality over quantity.`;
 
   try {
     const apiCallStart = Date.now();
@@ -371,10 +652,23 @@ Return only the JSON array, no other text.`;
         messages: [
           {
             role: 'system',
-            content: prompt
+            content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: `Generate ${params.ageBand} age-appropriate slang for "${vibe}" vibe. School-safe: ${params.schoolSafe}. Return JSON only.`
           }
         ],
-        max_completion_tokens: 1000, // Reduced from 1500 for cost optimization
+        max_completion_tokens: 800, // Reduced for 1-3 items instead of 5
+        temperature: 0.8, // Fixed creativity for consistency
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "slang_generation",
+            strict: true,
+            schema: slangJsonSchema
+          }
+        }
       }),
     });
     const apiCallEnd = Date.now();
@@ -391,7 +685,7 @@ Return only the JSON array, no other text.`;
         status: response.status,
         error_message: `OpenAI API error: ${response.status} - ${errorText}`,
         processing_time_ms: apiCallEnd - apiCallStart,
-        request_data: { model: 'gpt-5-mini-2025-08-07', vibe },
+        request_data: { model: 'gpt-5-mini-2025-08-07', vibe, ageBand: params.ageBand },
         estimated_cost: 0.01
       });
       
@@ -401,7 +695,7 @@ Return only the JSON array, no other text.`;
         console.log(`Rate limited. Retrying in ${backoffDelay}ms (attempt ${retryCount + 1}/3)`);
         
         await new Promise(resolve => setTimeout(resolve, backoffDelay));
-        return generateSlang(vibe, retryCount + 1);
+        return generateSlang(vibe, params, retryCount + 1);
       }
       
       // Enhanced fallback - try cache first, then predefined
@@ -433,7 +727,7 @@ Return only the JSON array, no other text.`;
       request_type: 'generation', 
       status: response.status,
       processing_time_ms: apiCallEnd - apiCallStart,
-      request_data: { model: 'gpt-5-mini-2025-08-07', vibe },
+      request_data: { model: 'gpt-5-mini-2025-08-07', vibe, ageBand: params.ageBand },
       response_data: { 
         usage: data.usage,
         model: data.model 
@@ -445,12 +739,27 @@ Return only the JSON array, no other text.`;
     });
     
     try {
-      const creations = JSON.parse(content);
-      if (!Array.isArray(creations) || creations.length !== 5) {
-        throw new Error('Invalid response format');
+      const parsed = JSON.parse(content);
+      const slangItems = parsed.slang_items || parsed; // Handle both formats
+      
+      if (!Array.isArray(slangItems) || slangItems.length === 0) {
+        throw new Error('Invalid response format - no slang items');
       }
-      console.log('Successfully generated fresh AI content');
-      return { creations, isFromAI: true };
+      
+      // Validate each item has required fields
+      const validCreations = slangItems.filter(item => 
+        item.phrase && item.meaning && item.example &&
+        typeof item.phrase === 'string' && 
+        typeof item.meaning === 'string' && 
+        typeof item.example === 'string'
+      );
+      
+      if (validCreations.length === 0) {
+        throw new Error('No valid creations in response');
+      }
+      
+      console.log(`Successfully generated ${validCreations.length} fresh AI content items`);
+      return { creations: validCreations, isFromAI: true };
     } catch (parseError) {
       console.error('Failed to parse OpenAI response:', content);
       
@@ -616,25 +925,43 @@ async function moderateCreations(creations: any[]) {
     .from('banned_terms')
     .select('phrase');
 
-  const bannedWords = bannedTerms?.map(t => t.phrase.toLowerCase()) || [];
+  const dbBannedWords = bannedTerms?.map(t => t.phrase.toLowerCase()) || [];
+  
+  // Combine database banned words with our comprehensive blocklist
+  const allBannedWords = [...new Set([...CONTENT_BLOCKLIST, ...dbBannedWords])];
 
   const moderatedCreations = [];
 
   for (const creation of creations) {
     const textToCheck = `${creation.phrase} ${creation.meaning} ${creation.example}`.toLowerCase();
     
-    // 1. Check banned words
+    // 1. Check banned words (exact matches)
     let isSafe = true;
     let violations = [];
     
-    const foundBanned = bannedWords.filter(word => textToCheck.includes(word));
+    const foundBanned = allBannedWords.filter(word => textToCheck.includes(word.toLowerCase()));
     if (foundBanned.length > 0) {
       isSafe = false;
-      violations.push('Contains banned terms');
+      violations.push(`Contains banned terms: ${foundBanned.join(', ')}`);
+      console.log(`Blocked creation for banned words: ${foundBanned.join(', ')}`);
       continue; // Skip this creation
     }
 
-    // 2. OpenAI Moderation API check
+    // 2. Check regex patterns for leetspeak and variations
+    let foundPattern = false;
+    for (const pattern of CONTENT_BLOCKLIST_REGEX) {
+      if (pattern.test(textToCheck)) {
+        isSafe = false;
+        violations.push('Contains disguised inappropriate content');
+        foundPattern = true;
+        console.log(`Blocked creation for pattern match: ${pattern}`);
+        break;
+      }
+    }
+    
+    if (foundPattern) continue;
+
+    // 3. OpenAI Output Moderation API check (using omni-moderation-latest)
     if (openaiApiKey) {
       try {
         const moderationResponse = await fetch('https://api.openai.com/v1/moderations', {
@@ -644,7 +971,8 @@ async function moderateCreations(creations: any[]) {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            input: `${creation.phrase}: ${creation.meaning}. Example: ${creation.example}`
+            input: `${creation.phrase}: ${creation.meaning}. Example: ${creation.example}`,
+            model: 'omni-moderation-latest'
           }),
         });
 
@@ -657,35 +985,18 @@ async function moderateCreations(creations: any[]) {
             const flaggedCategories = Object.entries(result.categories)
               .filter(([_, flagged]) => flagged)
               .map(([category, _]) => category);
-            violations.push(`AI flagged: ${flaggedCategories.join(', ')}`);
+            violations.push(`AI moderation flagged: ${flaggedCategories.join(', ')}`);
+            console.log(`Blocked creation for AI moderation: ${flaggedCategories.join(', ')}`);
             continue; // Skip this creation
           }
         }
       } catch (error) {
-        console.error('OpenAI moderation error:', error);
+        console.error('OpenAI output moderation error:', error);
         // Continue without failing if moderation API is down
       }
     }
 
-    // 3. Pattern matching for disguised content
-    const patterns = [
-      /f[*@#$]ck/gi,
-      /sh[*@#$]t/gi,
-      /b[*@#$]tch/gi,
-      /n[*@#$]gger/gi,
-      /\d+\s*(kill|murder|die)/gi,
-      /(k\s*i\s*l\s*l|k1ll|ki11)/gi,
-    ];
-
-    for (const pattern of patterns) {
-      if (pattern.test(textToCheck)) {
-        isSafe = false;
-        violations.push('Contains disguised inappropriate content');
-        break;
-      }
-    }
-
-    if (!isSafe) continue; // Skip this creation
+    // If we reach here, the creation passed all safety checks
 
     // Mark as safe and add to results
     moderatedCreations.push({

@@ -39,6 +39,8 @@ import { TrialOffer } from '@/components/ui/trial-offer';
 import { ManualSlangForm } from '@/components/ManualSlangForm';
 import { ReportButton } from '@/components/ReportButton';
 import { AgeVerificationModal } from '@/components/AgeVerificationModal';
+import type { AgeBand } from '@/types/slang';
+import { getAgePolicyForBand, getAgeBandDisplay, filterVibesForAge, getSharingConfig } from '@/lib/agePolicy';
 
 
 interface Creation {
@@ -69,6 +71,11 @@ const SlangLab = () => {
   const [showAgeVerification, setShowAgeVerification] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [creationToShare, setCreationToShare] = useState<ShareCreation | null>(null);
+  
+  // Phase 1: Age Controls State
+  const [ageBand, setAgeBand] = useState<AgeBand>('11-13');
+  const [schoolSafe, setSchoolSafe] = useState(true);
+  const [creativity, setCreativity] = useState(0.7);
   const [generationStatus, setGenerationStatus] = useState<{
     isFromAI: boolean;
     message: string;
@@ -93,6 +100,11 @@ const SlangLab = () => {
   }
 
   const hasLabProAccess = isAdmin || plan === 'LabPro';
+  
+  // Get age policy and filtered vibes
+  const agePolicy = getAgePolicyForBand(ageBand);
+  const availableVibes = filterVibesForAge(VIBES, ageBand);
+  const sharingConfig = getSharingConfig(ageBand);
 
   // Fetch user profile and check age verification, and load existing creations
   useEffect(() => {
@@ -108,6 +120,23 @@ const SlangLab = () => {
           
           if (!data[0].age_verified) {
             setShowAgeVerification(true);
+          } else {
+            // Set age band based on birth date if available
+            if (data[0].birth_date) {
+              const birthDate = new Date(data[0].birth_date);
+              const today = new Date();
+              let age = today.getFullYear() - birthDate.getFullYear();
+              const monthDiff = today.getMonth() - birthDate.getMonth();
+              
+              if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+              }
+              
+              if (age >= 11 && age <= 13) setAgeBand('11-13');
+              else if (age >= 14 && age <= 17) setAgeBand('14-17');
+              else if (age >= 18 && age <= 22) setAgeBand('18-22');
+              else setAgeBand(age < 11 ? '11-13' : '18-22');
+            }
           }
         }
       } catch (error) {
@@ -145,6 +174,23 @@ const SlangLab = () => {
   const handleAgeVerificationComplete = (isMinor: boolean) => {
     setShowAgeVerification(false);
     setUserProfile(prev => ({ ...prev, age_verified: true, safe_mode: isMinor }));
+    
+    // Update age band based on verification
+    if (userProfile?.birth_date) {
+      const birthDate = new Date(userProfile.birth_date);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      
+      if (age >= 11 && age <= 13) setAgeBand('11-13');
+      else if (age >= 14 && age <= 17) setAgeBand('14-17');
+      else if (age >= 18 && age <= 22) setAgeBand('18-22');
+      else setAgeBand(age < 11 ? '11-13' : '18-22');
+    }
     
     if (isMinor) {
       toast({
@@ -192,7 +238,14 @@ const SlangLab = () => {
     setGenerationStatus(null); // Clear previous status
     try {
       const { data, error } = await supabase.functions.invoke('generate-slang', {
-        body: { vibe: selectedVibe }
+        body: { 
+          vibe: selectedVibe,
+          ageBand,
+          schoolSafe,
+          creativity,
+          format: 'short_phrase',
+          context: 'generic'
+        }
       });
 
       if (error) {
@@ -458,7 +511,65 @@ const SlangLab = () => {
               <CardHeader>
                 <CardTitle>Create New Slang</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
+                {/* Age Band Display (Read-only) */}
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Your Age Group</label>
+                  <div className="p-3 bg-muted rounded-lg">
+                    <p className="text-sm font-medium">{getAgeBandDisplay(ageBand)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Based on your profile information. Content is tailored for your age group.
+                    </p>
+                  </div>
+                </div>
+
+                {/* School-Safe Toggle */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium">School-Safe Mode</label>
+                    <p className="text-xs text-muted-foreground">
+                      {agePolicy.requireSchoolSafe 
+                        ? 'Required for your age group' 
+                        : 'Optional - content suitable for academic/work environments'
+                      }
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="school-safe"
+                      checked={schoolSafe}
+                      onChange={(e) => setSchoolSafe(e.target.checked)}
+                      disabled={agePolicy.requireSchoolSafe}
+                      className="rounded border-border"
+                    />
+                    <label htmlFor="school-safe" className="text-sm">
+                      {schoolSafe ? 'ON' : 'OFF'}
+                    </label>
+                  </div>
+                </div>
+
+                {/* Creativity Level Slider */}
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Creativity Level: {creativity.toFixed(1)}
+                  </label>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max={agePolicy.maxCreativity}
+                    step="0.1"
+                    value={creativity}
+                    onChange={(e) => setCreativity(parseFloat(e.target.value))}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                    <span>Conservative</span>
+                    <span>Max: {agePolicy.maxCreativity}</span>
+                  </div>
+                </div>
+
+                {/* Vibe Selection */}
                 <div>
                   <label className="text-sm font-medium mb-2 block">Choose a Vibe</label>
                   <Select value={selectedVibe} onValueChange={setSelectedVibe}>
@@ -466,7 +577,7 @@ const SlangLab = () => {
                       <SelectValue placeholder="Select the mood you want to create..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {VIBES.map((vibe) => (
+                      {availableVibes.map((vibe) => (
                         <SelectItem key={vibe.value} value={vibe.value}>
                           {vibe.label}
                         </SelectItem>
@@ -488,7 +599,7 @@ const SlangLab = () => {
                   ) : (
                     <>
                       <Sparkles className="mr-2 h-4 w-4" />
-                      Generate 5 Phrases
+                      Generate Safe Slang
                     </>
                   )}
                 </Button>
