@@ -119,6 +119,72 @@ export type Database = {
         }
         Relationships: []
       }
+      api_usage_logs: {
+        Row: {
+          actual_cost: number | null
+          api_endpoint: string
+          api_provider: string
+          completion_tokens: number | null
+          created_at: string
+          error_message: string | null
+          estimated_cost: number
+          function_name: string
+          id: string
+          processing_time_ms: number | null
+          prompt_tokens: number | null
+          request_data: Json | null
+          request_type: string
+          response_data: Json | null
+          session_id: string | null
+          status: number
+          total_tokens: number | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          actual_cost?: number | null
+          api_endpoint: string
+          api_provider: string
+          completion_tokens?: number | null
+          created_at?: string
+          error_message?: string | null
+          estimated_cost?: number
+          function_name: string
+          id?: string
+          processing_time_ms?: number | null
+          prompt_tokens?: number | null
+          request_data?: Json | null
+          request_type: string
+          response_data?: Json | null
+          session_id?: string | null
+          status: number
+          total_tokens?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          actual_cost?: number | null
+          api_endpoint?: string
+          api_provider?: string
+          completion_tokens?: number | null
+          created_at?: string
+          error_message?: string | null
+          estimated_cost?: number
+          function_name?: string
+          id?: string
+          processing_time_ms?: number | null
+          prompt_tokens?: number | null
+          request_data?: Json | null
+          request_type?: string
+          response_data?: Json | null
+          session_id?: string | null
+          status?: number
+          total_tokens?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       banned_terms: {
         Row: {
           created_at: string
@@ -134,6 +200,42 @@ export type Database = {
           created_at?: string
           id?: string
           phrase?: string
+        }
+        Relationships: []
+      }
+      billing_data: {
+        Row: {
+          billing_period_end: string
+          billing_period_start: string
+          created_at: string
+          id: string
+          provider: string
+          raw_billing_data: Json | null
+          synced_at: string
+          total_cost: number
+          usage_details: Json | null
+        }
+        Insert: {
+          billing_period_end: string
+          billing_period_start: string
+          created_at?: string
+          id?: string
+          provider: string
+          raw_billing_data?: Json | null
+          synced_at?: string
+          total_cost: number
+          usage_details?: Json | null
+        }
+        Update: {
+          billing_period_end?: string
+          billing_period_start?: string
+          created_at?: string
+          id?: string
+          provider?: string
+          raw_billing_data?: Json | null
+          synced_at?: string
+          total_cost?: number
+          usage_details?: Json | null
         }
         Relationships: []
       }
@@ -176,6 +278,45 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
+        }
+        Relationships: []
+      }
+      cost_alerts: {
+        Row: {
+          acknowledged: boolean
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          alert_message: string
+          alert_type: string
+          created_at: string
+          current_amount: number
+          id: string
+          severity: string
+          threshold_amount: number
+        }
+        Insert: {
+          acknowledged?: boolean
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_message: string
+          alert_type: string
+          created_at?: string
+          current_amount: number
+          id?: string
+          severity?: string
+          threshold_amount: number
+        }
+        Update: {
+          acknowledged?: boolean
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_message?: string
+          alert_type?: string
+          created_at?: string
+          current_amount?: number
+          id?: string
+          severity?: string
+          threshold_amount?: number
         }
         Relationships: []
       }

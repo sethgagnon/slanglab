@@ -113,6 +113,13 @@ export const UsageAnalytics = () => {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
+    // Get real API usage data from logs
+    const { data: apiLogs } = await supabase
+      .from('api_usage_logs')
+      .select('*')
+      .gte('created_at', startDate.toISOString());
+
+    // Fallback to old data for backwards compatibility
     const { data: lookups } = await supabase
       .from('lookups')
       .select('created_at')
@@ -147,43 +154,72 @@ export const UsageAnalytics = () => {
       });
     }
 
-    // Process authenticated lookups (SerpAPI calls)
-    lookups?.forEach(lookup => {
-      const date = lookup.created_at.split('T')[0];
-      const existing = dateMap.get(date);
-      if (existing) {
-        existing.serpapi_calls++;
-        existing.authenticated_searches++;
-      }
-    });
+    // Process real API usage logs (preferred method)
+    if (apiLogs && apiLogs.length > 0) {
+      apiLogs.forEach(log => {
+        const date = log.created_at.split('T')[0];
+        const existing = dateMap.get(date);
+        if (existing) {
+          if (log.api_provider === 'serpapi') {
+            existing.serpapi_calls++;
+            if (log.user_id) {
+              existing.authenticated_searches++;
+            } else {
+              existing.anonymous_searches++;
+            }
+          } else if (log.api_provider === 'openai') {
+            if (log.request_type === 'generation') {
+              existing.openai_calls++;
+            } else if (log.request_type === 'moderation') {
+              existing.moderation_calls++;
+            }
+          }
+          // Use actual cost from logs
+          existing.daily_cost += log.actual_cost || log.estimated_cost || 0;
+        }
+      });
+    } else {
+      // Fallback to old method for backwards compatibility
+      // Process authenticated lookups (SerpAPI calls)
+      lookups?.forEach(lookup => {
+        const date = lookup.created_at.split('T')[0];
+        const existing = dateMap.get(date);
+        if (existing) {
+          existing.serpapi_calls++;
+          existing.authenticated_searches++;
+        }
+      });
 
-    // Process anonymous searches (SerpAPI calls)
-    anonymous?.forEach(search => {
-      const date = search.created_at.split('T')[0];
-      const existing = dateMap.get(date);
-      if (existing) {
-        existing.serpapi_calls += search.search_count;
-        existing.anonymous_searches += search.search_count;
-      }
-    });
+      // Process anonymous searches (SerpAPI calls)
+      anonymous?.forEach(search => {
+        const date = search.created_at.split('T')[0];
+        const existing = dateMap.get(date);
+        if (existing) {
+          existing.serpapi_calls += search.search_count;
+          existing.anonymous_searches += search.search_count;
+        }
+      });
 
-    // Process OpenAI creations
-    creations?.forEach(creation => {
-      const date = creation.created_at.split('T')[0];
-      const existing = dateMap.get(date);
-      if (existing) {
-        existing.openai_calls++;
-        existing.moderation_calls++; // Each creation gets moderated
-      }
-    });
+      // Process OpenAI creations
+      creations?.forEach(creation => {
+        const date = creation.created_at.split('T')[0];
+        const existing = dateMap.get(date);
+        if (existing) {
+          existing.openai_calls++;
+          existing.moderation_calls++; // Each creation gets moderated
+        }
+      });
 
-    // Calculate daily costs
-    Array.from(dateMap.values()).forEach(data => {
-      data.daily_cost = 
-        (data.serpapi_calls * COST_RATES.SERPAPI) +
-        (data.openai_calls * COST_RATES.OPENAI_GPT) +
-        (data.moderation_calls * COST_RATES.OPENAI_MODERATION);
-    });
+      // Calculate daily costs using estimates only if no real data
+      Array.from(dateMap.values()).forEach(data => {
+        if (data.daily_cost === 0) {
+          data.daily_cost = 
+            (data.serpapi_calls * COST_RATES.SERPAPI) +
+            (data.openai_calls * COST_RATES.OPENAI_GPT) +
+            (data.moderation_calls * COST_RATES.OPENAI_MODERATION);
+        }
+      });
+    }
 
     setUsageData(Array.from(dateMap.values()).reverse());
   };

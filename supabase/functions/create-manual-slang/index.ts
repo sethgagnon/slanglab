@@ -17,6 +17,9 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Store request context for API logging
+  globalThis.currentRequest = req;
+
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -220,6 +223,7 @@ async function moderateContent(content: { phrase: string; meaning: string; examp
 
   // 2. OpenAI Moderation API check
   try {
+    const apiCallStart = Date.now();
     const moderationResponse = await fetch('https://api.openai.com/v1/moderations', {
       method: 'POST',
       headers: {
@@ -230,10 +234,23 @@ async function moderateContent(content: { phrase: string; meaning: string; examp
         input: `${content.phrase}: ${content.meaning}. Example: ${content.example}`
       }),
     });
+    const apiCallEnd = Date.now();
 
     if (moderationResponse.ok) {
       const moderation = await moderationResponse.json();
       const result = moderation.results[0];
+      
+      // Log successful API call
+      await logAPIUsage({
+        api_provider: 'openai',
+        api_endpoint: 'moderations',
+        request_type: 'moderation',
+        status: moderationResponse.status,
+        processing_time_ms: apiCallEnd - apiCallStart,
+        request_data: { input: `${content.phrase}: ${content.meaning}. Example: ${content.example}` },
+        response_data: { flagged: result.flagged, categories: result.categories },
+        estimated_cost: 0.0002
+      });
       
       if (result.flagged) {
         const flaggedCategories = Object.entries(result.categories)
@@ -250,6 +267,18 @@ async function moderateContent(content: { phrase: string; meaning: string; examp
           return { safe: false, violations, requiresReview: false };
         }
       }
+    } else {
+      // Log failed API call
+      await logAPIUsage({
+        api_provider: 'openai',
+        api_endpoint: 'moderations',
+        request_type: 'moderation',
+        status: moderationResponse.status,
+        error_message: `OpenAI moderation error: ${moderationResponse.status}`,
+        processing_time_ms: apiCallEnd - apiCallStart,
+        request_data: { input: `${content.phrase}: ${content.meaning}. Example: ${content.example}` },
+        estimated_cost: 0.0002
+      });
     }
   } catch (error) {
     console.error('OpenAI moderation error:', error);
@@ -318,5 +347,69 @@ async function updateManualCreationLimits(supabase: any, userId: string) {
         manual_generations_used: 1,
         date: weekStartStr
       });
+  }
+}
+
+// API Usage Logging Function
+async function logAPIUsage(logData: {
+  api_provider: string;
+  api_endpoint: string;
+  request_type: string;
+  status: number;
+  error_message?: string;
+  processing_time_ms: number;
+  request_data?: any;
+  response_data?: any;
+  estimated_cost: number;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+}) {
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Get user info from context
+    const authHeader = globalThis.currentRequest?.headers.get('authorization');
+    let userId = null;
+    let sessionId = null;
+
+    if (authHeader) {
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+      userId = user?.id || null;
+    } else {
+      const clientInfo = globalThis.currentRequest?.headers.get('x-client-info');
+      sessionId = clientInfo || 'anonymous';
+    }
+
+    await supabase.from('api_usage_logs').insert({
+      user_id: userId,
+      session_id: sessionId,
+      api_provider: logData.api_provider,
+      api_endpoint: logData.api_endpoint,
+      request_type: logData.request_type,
+      prompt_tokens: logData.prompt_tokens || 0,
+      completion_tokens: logData.completion_tokens || 0,
+      total_tokens: logData.total_tokens || 0,
+      estimated_cost: logData.estimated_cost,
+      request_data: logData.request_data || {},
+      response_data: logData.response_data || {},
+      function_name: 'create-manual-slang',
+      status: logData.status,
+      error_message: logData.error_message,
+      processing_time_ms: logData.processing_time_ms
+    });
+
+    console.log('API usage logged:', {
+      provider: logData.api_provider,
+      cost: logData.estimated_cost,
+      status: logData.status
+    });
+  } catch (error) {
+    console.error('Failed to log API usage:', error);
+    // Don't throw - logging failures shouldn't break the main function
   }
 }

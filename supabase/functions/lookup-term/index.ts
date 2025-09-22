@@ -13,6 +13,10 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+  let userId = null;
+  let sessionId = null;
+
   try {
     // Rate limiting for anonymous users
     const clientIP = req.headers.get('x-forwarded-for')?.split(',')[0] || 
@@ -22,6 +26,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // Store request context for API logging
+    globalThis.currentRequest = req;
 
     // Check rate limit for anonymous users
     const { data: rateLimitOk } = await supabase.rpc('check_edge_function_rate_limit', {
@@ -280,15 +287,43 @@ async function fetchSnippets(term: string) {
     const searchUrl = `https://serpapi.com/search?q=${encodeURIComponent(query)}&api_key=${serpApiKey}&num=10&engine=google`;
     
     console.log('Calling SerpAPI with targeted query:', query);
+    const apiCallStart = Date.now();
     
     const response = await fetch(searchUrl);
+    const apiCallEnd = Date.now();
 
     if (!response.ok) {
+      // Log failed API call
+      await logAPIUsage({
+        api_provider: 'serpapi',
+        api_endpoint: 'google_search',
+        request_type: 'search',
+        status: response.status,
+        error_message: `SerpAPI error: ${response.status}`,
+        processing_time_ms: apiCallEnd - apiCallStart,
+        request_data: { query, term },
+        estimated_cost: 0.004
+      });
       throw new Error(`SerpAPI error: ${response.status}`);
     }
 
     const data = await response.json();
     console.log('SerpAPI response received, organic results count:', data.organic_results?.length || 0);
+
+    // Log successful API call
+    await logAPIUsage({
+      api_provider: 'serpapi',
+      api_endpoint: 'google_search', 
+      request_type: 'search',
+      status: response.status,
+      processing_time_ms: apiCallEnd - apiCallStart,
+      request_data: { query, term },
+      response_data: { 
+        results_count: data.organic_results?.length || 0,
+        search_metadata: data.search_metadata 
+      },
+      estimated_cost: 0.004
+    });
 
     // Process SerpAPI search results
     const snippets = data.organic_results?.slice(0, 10).map((result: any) => ({
@@ -875,5 +910,69 @@ async function updateUsageLimits(supabase: any, userId: string) {
         generations_used: 0,
         creations_used: 0
       });
+  }
+}
+
+// API Usage Logging Function
+async function logAPIUsage(logData: {
+  api_provider: string;
+  api_endpoint: string;
+  request_type: string;
+  status: number;
+  error_message?: string;
+  processing_time_ms: number;
+  request_data?: any;
+  response_data?: any;
+  estimated_cost: number;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+}) {
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Get user info from global variables
+    const authHeader = globalThis.currentRequest?.headers.get('authorization');
+    let userId = null;
+    let sessionId = null;
+
+    if (authHeader) {
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+      userId = user?.id || null;
+    } else {
+      const clientInfo = globalThis.currentRequest?.headers.get('x-client-info');
+      sessionId = clientInfo || 'anonymous';
+    }
+
+    await supabase.from('api_usage_logs').insert({
+      user_id: userId,
+      session_id: sessionId,
+      api_provider: logData.api_provider,
+      api_endpoint: logData.api_endpoint,
+      request_type: logData.request_type,
+      prompt_tokens: logData.prompt_tokens || 0,
+      completion_tokens: logData.completion_tokens || 0,
+      total_tokens: logData.total_tokens || 0,
+      estimated_cost: logData.estimated_cost,
+      request_data: logData.request_data || {},
+      response_data: logData.response_data || {},
+      function_name: 'lookup-term',
+      status: logData.status,
+      error_message: logData.error_message,
+      processing_time_ms: logData.processing_time_ms
+    });
+
+    console.log('API usage logged:', {
+      provider: logData.api_provider,
+      cost: logData.estimated_cost,
+      status: logData.status
+    });
+  } catch (error) {
+    console.error('Failed to log API usage:', error);
+    // Don't throw - logging failures shouldn't break the main function
   }
 }

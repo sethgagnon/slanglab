@@ -21,6 +21,9 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Store request context for API logging
+  globalThis.currentRequest = req;
+
   try {
     // Enhanced input validation
     const body = await req.json();
@@ -189,6 +192,7 @@ Safety Rules:
 Return only the JSON array, no other text.`;
 
   try {
+    const apiCallStart = Date.now();
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -206,10 +210,23 @@ Return only the JSON array, no other text.`;
         max_completion_tokens: 1500,
       }),
     });
+    const apiCallEnd = Date.now();
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`OpenAI API error: ${response.status} - ${errorText}`);
+      
+      // Log failed API call
+      await logAPIUsage({
+        api_provider: 'openai',
+        api_endpoint: 'chat/completions',
+        request_type: 'generation',
+        status: response.status,
+        error_message: `OpenAI API error: ${response.status} - ${errorText}`,
+        processing_time_ms: apiCallEnd - apiCallStart,
+        request_data: { model: 'gpt-5-mini-2025-08-07', vibe },
+        estimated_cost: 0.01
+      });
       
       // Handle rate limiting with exponential backoff
       if (response.status === 429 && retryCount < 3) {
@@ -234,6 +251,24 @@ Return only the JSON array, no other text.`;
 
     const data = await response.json();
     const content = data.choices[0].message.content;
+    
+    // Log successful API call
+    await logAPIUsage({
+      api_provider: 'openai',
+      api_endpoint: 'chat/completions',
+      request_type: 'generation', 
+      status: response.status,
+      processing_time_ms: apiCallEnd - apiCallStart,
+      request_data: { model: 'gpt-5-mini-2025-08-07', vibe },
+      response_data: { 
+        usage: data.usage,
+        model: data.model 
+      },
+      prompt_tokens: data.usage?.prompt_tokens || 0,
+      completion_tokens: data.usage?.completion_tokens || 0,
+      total_tokens: data.usage?.total_tokens || 0,
+      estimated_cost: calculateOpenAICost(data.usage?.total_tokens || 0, 'gpt-5-mini-2025-08-07')
+    });
     
     try {
       const creations = JSON.parse(content);
@@ -569,5 +604,83 @@ async function updateGenerationLimits(userId: string) {
     }
   } catch (error) {
     console.error('Error updating generation limits:', error);
+  }
+}
+
+// Cost calculation function for OpenAI API
+function calculateOpenAICost(totalTokens: number, model: string): number {
+  const costPer1KTokens = {
+    'gpt-5-mini-2025-08-07': 0.000150, // $0.150 per 1K tokens
+    'gpt-4o-mini': 0.000150,
+    'gpt-4o': 0.005000, // $5.00 per 1K tokens
+    'text-moderation-latest': 0.000002 // $0.002 per 1K tokens
+  };
+  
+  const rate = costPer1KTokens[model] || 0.000150; // Default to mini rate
+  return (totalTokens / 1000) * rate;
+}
+
+// API Usage Logging Function
+async function logAPIUsage(logData: {
+  api_provider: string;
+  api_endpoint: string;
+  request_type: string;
+  status: number;
+  error_message?: string;
+  processing_time_ms: number;
+  request_data?: any;
+  response_data?: any;
+  estimated_cost: number;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+}) {
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Get user info from context
+    const authHeader = globalThis.currentRequest?.headers.get('authorization');
+    let userId = null;
+    let sessionId = null;
+
+    if (authHeader) {
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+      userId = user?.id || null;
+    } else {
+      const clientInfo = globalThis.currentRequest?.headers.get('x-client-info');
+      sessionId = clientInfo || 'anonymous';
+    }
+
+    await supabase.from('api_usage_logs').insert({
+      user_id: userId,
+      session_id: sessionId,
+      api_provider: logData.api_provider,
+      api_endpoint: logData.api_endpoint,
+      request_type: logData.request_type,
+      prompt_tokens: logData.prompt_tokens || 0,
+      completion_tokens: logData.completion_tokens || 0,
+      total_tokens: logData.total_tokens || 0,
+      estimated_cost: logData.estimated_cost,
+      request_data: logData.request_data || {},
+      response_data: logData.response_data || {},
+      function_name: 'generate-slang',
+      status: logData.status,
+      error_message: logData.error_message,
+      processing_time_ms: logData.processing_time_ms
+    });
+
+    console.log('API usage logged:', {
+      provider: logData.api_provider,
+      cost: logData.estimated_cost,
+      tokens: logData.total_tokens,
+      status: logData.status
+    });
+  } catch (error) {
+    console.error('Failed to log API usage:', error);
+    // Don't throw - logging failures shouldn't break the main function
   }
 }
