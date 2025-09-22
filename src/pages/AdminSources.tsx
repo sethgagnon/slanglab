@@ -193,7 +193,7 @@ const AdminSources = () => {
     return <Navigate to="/" replace />;
   }
 
-  const googleSource = sources.find(s => s.source_type === 'search_api' && s.source_name === 'google_cse');
+  const googleSource = sources.find(s => s.source_type === 'search_api' && s.source_name === 'Google Custom Search');
   const serpApiSource = sources.find(s => s.source_type === 'search_api' && s.source_name === 'SerpAPI');
   const redditSource = sources.find(s => s.source_type === 'social_api');
   const youtubeSource = sources.find(s => s.source_type === 'video_api');
