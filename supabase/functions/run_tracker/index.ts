@@ -185,41 +185,42 @@ async function searchGoogleCSE(queries: string[], allowlist: string[], maxResult
   return results;
 }
 
-// NewsAPI integration
-async function searchNewsAPI(term: string, allowlist: string[], maxResults: number): Promise<SearchResult[]> {
-  const apiKey = Deno.env.get('NEWS_API_KEY');
+// SerpAPI integration for news searches
+async function searchSerpAPINews(term: string, allowlist: string[], maxResults: number): Promise<SearchResult[]> {
+  const apiKey = Deno.env.get('SERPAPI_API_KEY');
   
   if (!apiKey) {
-    console.log('NewsAPI credentials not available');
+    console.log('SerpAPI credentials not available');
     return [];
   }
   
   try {
-    let url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(term)}&sortBy=publishedAt&pageSize=${Math.min(maxResults, 100)}&apiKey=${apiKey}`;
+    let url = `https://serpapi.com/search.json?engine=google_news&q=${encodeURIComponent(term)}&num=${Math.min(maxResults, 100)}&api_key=${apiKey}`;
     
-    // Apply domains filter if allowlist provided
+    // Apply site restrictions if allowlist provided
     if (allowlist.length > 0) {
-      url += `&domains=${allowlist.join(',')}`;
+      const siteRestrictions = allowlist.map(domain => `site:${domain}`).join(' OR ');
+      url += `&q=${encodeURIComponent(`${term} (${siteRestrictions})`)}`;
     }
     
     const response = await fetch(url);
     if (!response.ok) {
-      console.log(`NewsAPI error: ${response.status}`);
+      console.log(`SerpAPI error: ${response.status}`);
       return [];
     }
     
     const data = await response.json();
     const results: SearchResult[] = [];
     
-    if (data.articles) {
-      for (const article of data.articles) {
-        if (article.url && article.description) {
+    if (data.news_results) {
+      for (const article of data.news_results) {
+        if (article.link && article.snippet) {
           results.push({
-            url: article.url,
+            url: article.link,
             title: article.title || '',
-            snippet: article.description,
-            source: 'news_api',
-            published_at: article.publishedAt,
+            snippet: article.snippet,
+            source: 'serpapi',
+            published_at: article.date,
             match_type: 'news_search',
             score: 0 // Will be calculated later
           });
@@ -229,7 +230,7 @@ async function searchNewsAPI(term: string, allowlist: string[], maxResults: numb
     
     return results;
   } catch (error) {
-    console.error('NewsAPI search error:', error);
+    console.error('SerpAPI news search error:', error);
     return [];
   }
 }
@@ -360,13 +361,13 @@ serve(async (req) => {
       allResults = allResults.concat(results);
     }
 
-    // NewsAPI search
-    for (const rule of rules.filter(r => r.source_name === 'news_api')) {
+    // SerpAPI news search
+    for (const rule of rules.filter(r => r.source_name === 'SerpAPI')) {
       const cap = rule.per_run_cap || defaultCap;
       const allowlist = rule.domains_allowlist || [];
       
-      console.log(`Searching NewsAPI with cap: ${cap}, allowlist: ${allowlist.length} domains`);
-      const results = await searchNewsAPI(term, allowlist, cap);
+      console.log(`Searching SerpAPI News with cap: ${cap}, allowlist: ${allowlist.length} domains`);
+      const results = await searchSerpAPINews(term, allowlist, cap);
       allResults = allResults.concat(results);
     }
 

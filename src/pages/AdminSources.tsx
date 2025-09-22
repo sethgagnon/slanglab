@@ -193,8 +193,8 @@ const AdminSources = () => {
     return <Navigate to="/" replace />;
   }
 
-  const googleSource = sources.find(s => s.source_type === 'search_api');
-  const newsSource = sources.find(s => s.source_type === 'news_api');
+  const googleSource = sources.find(s => s.source_type === 'search_api' && s.source_name === 'google_cse');
+  const serpApiSource = sources.find(s => s.source_type === 'search_api' && s.source_name === 'SerpAPI');
   const redditSource = sources.find(s => s.source_type === 'social_api');
   const youtubeSource = sources.find(s => s.source_type === 'video_api');
 
@@ -210,7 +210,7 @@ const AdminSources = () => {
       <Tabs defaultValue="google" className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="google">Google CSE</TabsTrigger>
-          <TabsTrigger value="news">NewsAPI</TabsTrigger>
+          <TabsTrigger value="serpapi">SerpAPI</TabsTrigger>
           <TabsTrigger value="reddit" disabled>Reddit</TabsTrigger>
           <TabsTrigger value="youtube" disabled>YouTube</TabsTrigger>
         </TabsList>
@@ -371,48 +371,48 @@ const AdminSources = () => {
           )}
         </TabsContent>
 
-        {/* NewsAPI */}
-        <TabsContent value="news">
-          {newsSource && (
+        {/* SerpAPI */}
+        <TabsContent value="serpapi">
+          {serpApiSource && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <Settings className="h-5 w-5" />
-                    NewsAPI Integration
+                    SerpAPI Integration
                   </CardTitle>
                   <p className="text-sm text-muted-foreground mt-2">
-                    Access breaking news and articles from thousands of sources
+                    Search Google News and web results using SerpAPI
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {getStatusBadge(newsSource.status, newsSource.enabled)}
+                  {getStatusBadge(serpApiSource.status, serpApiSource.enabled)}
                   <Switch
-                    checked={newsSource.enabled}
-                    onCheckedChange={(enabled) => updateSource(newsSource.id, { enabled })}
+                    checked={serpApiSource.enabled}
+                    onCheckedChange={(enabled) => updateSource(serpApiSource.id, { enabled })}
                   />
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div>
-                  <Label htmlFor="news-key">NewsAPI Key</Label>
+                  <Label htmlFor="serpapi-key">SerpAPI Key</Label>
                   <Input
-                    id="news-key"
+                    id="serpapi-key"
                     type="password"
-                    placeholder="NewsAPI Key (stored securely)"
+                    placeholder="SerpAPI Key (stored securely)"
                     defaultValue="••••••••••••••••"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Get your API key from newsapi.org
+                    Get your API key from serpapi.com
                   </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <Label>Minimum Quality Score: {newsSource.min_score}</Label>
+                    <Label>Minimum Quality Score: {serpApiSource.min_score}</Label>
                     <Slider
-                      value={[newsSource.min_score]}
-                      onValueChange={([value]) => updateSource(newsSource.id, { min_score: value })}
+                      value={[serpApiSource.min_score]}
+                      onValueChange={([value]) => updateSource(serpApiSource.id, { min_score: value })}
                       max={100}
                       min={0}
                       step={5}
@@ -420,10 +420,10 @@ const AdminSources = () => {
                     />
                   </div>
                   <div>
-                    <Label>Articles Per Run: {newsSource.per_run_cap}</Label>
+                    <Label>Results Per Run: {serpApiSource.per_run_cap}</Label>
                     <Slider
-                      value={[newsSource.per_run_cap]}
-                      onValueChange={([value]) => updateSource(newsSource.id, { per_run_cap: value })}
+                      value={[serpApiSource.per_run_cap]}
+                      onValueChange={([value]) => updateSource(serpApiSource.id, { per_run_cap: value })}
                       max={100}
                       min={1}
                       step={5}
@@ -432,48 +432,77 @@ const AdminSources = () => {
                   </div>
                 </div>
 
-                <div>
-                  <Label>Supported Languages</Label>
-                  <Select onValueChange={(value) => {
-                    const currentLangs = Array.isArray(newsSource.languages) ? newsSource.languages : ['en'];
-                    if (!currentLangs.includes(value)) {
-                      updateSource(newsSource.id, { languages: [...currentLangs, value] });
-                    }
-                  }}>
-                    <SelectTrigger className="mt-2">
-                      <SelectValue placeholder="Add language" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="es">Spanish</SelectItem>
-                      <SelectItem value="fr">French</SelectItem>
-                      <SelectItem value="de">German</SelectItem>
-                      <SelectItem value="it">Italian</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {(Array.isArray(newsSource.languages) ? newsSource.languages : ['en']).map((lang) => (
-                      <Badge key={lang} variant="secondary" className="text-xs">
-                        {lang}
-                        <button
-                          onClick={() => {
-                            const currentLangs = Array.isArray(newsSource.languages) ? newsSource.languages : ['en'];
-                            const newLangs = currentLangs.filter(l => l !== lang);
-                            updateSource(newsSource.id, { languages: newLangs });
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Allowed Domains</Label>
+                    <div className="space-y-2 mt-2">
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Add domain (e.g., example.com)"
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              addDomain(serpApiSource.id, e.currentTarget.value, 'allowlist');
+                              e.currentTarget.value = '';
+                            }
                           }}
-                          className="ml-1 hover:text-red-500"
-                        >
-                          ×
-                        </button>
-                      </Badge>
-                    ))}
+                        />
+                        <Button size="sm" onClick={() => {}}>
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {(Array.isArray(serpApiSource.domains_allowlist) ? serpApiSource.domains_allowlist : []).map((domain) => (
+                          <Badge key={domain} variant="secondary" className="text-xs">
+                            {domain}
+                            <button
+                              onClick={() => removeDomain(serpApiSource.id, domain, 'allowlist')}
+                              className="ml-1 hover:text-red-500"
+                            >
+                              ×
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Blocked Domains</Label>
+                    <div className="space-y-2 mt-2">
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Add domain to block"
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              addDomain(serpApiSource.id, e.currentTarget.value, 'blocklist');
+                              e.currentTarget.value = '';
+                            }
+                          }}
+                        />
+                        <Button size="sm" variant="destructive">
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {(Array.isArray(serpApiSource.domains_blocklist) ? serpApiSource.domains_blocklist : []).map((domain) => (
+                          <Badge key={domain} variant="destructive" className="text-xs">
+                            {domain}
+                            <button
+                              onClick={() => removeDomain(serpApiSource.id, domain, 'blocklist')}
+                              className="ml-1 hover:text-white"
+                            >
+                              ×
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between pt-4 border-t">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Clock className="h-4 w-4" />
-                    Last run: {formatLastRun(newsSource.last_run_at)}
+                    Last run: {formatLastRun(serpApiSource.last_run_at)}
                   </div>
                   <Button variant="outline" size="sm">
                     <TestTube className="h-4 w-4 mr-2" />
