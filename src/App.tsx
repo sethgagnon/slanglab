@@ -8,7 +8,6 @@ import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Lookup from "./pages/Lookup";
 import SlangLab from "./pages/SlangLab";
-import History from "./pages/History";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
 import Leaderboard from "./pages/Leaderboard";
@@ -16,7 +15,6 @@ import SlangDetail from "./pages/SlangDetail";
 import TermDetail from "./pages/TermDetail";
 import ProMentions from "./pages/ProMentions";
 import NotFound from "./pages/NotFound";
-import AccountCreations from "./pages/AccountCreations";
 
 const queryClient = new QueryClient();
 
@@ -32,9 +30,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/lookup" element={<Lookup />} />
             <Route path="/slang-lab" element={<SlangLab />} />
-            <Route path="/history" element={<History />} />
             <Route path="/account" element={<Account />} />
-            <Route path="/account/creations" element={<AccountCreations />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/slang/:id" element={<SlangDetail />} />
