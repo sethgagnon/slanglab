@@ -14,6 +14,7 @@ import { SourceManagement } from '@/components/admin/SourceManagement';
 import { APISourceManagement } from '@/components/admin/APISourceManagement';
 import { ContentModeration } from '@/components/admin/ContentModeration';
 import { SystemHealth } from '@/components/admin/SystemHealth';
+import { UsageAnalytics } from '@/components/admin/UsageAnalytics';
 import { ProtectedFeature } from '@/components/ProtectedFeature';
 
 const Admin = () => {
@@ -70,13 +71,19 @@ const Admin = () => {
           </div>
 
           {/* Tabs */}
-          <Tabs defaultValue="moderation" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+          <Tabs defaultValue="analytics" className="w-full">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="analytics">Usage Analytics</TabsTrigger>
               <TabsTrigger value="moderation">Content Moderation</TabsTrigger>
               <TabsTrigger value="sources">Source Management</TabsTrigger>
               <TabsTrigger value="api">API Configuration</TabsTrigger>
               <TabsTrigger value="system">System Health</TabsTrigger>
             </TabsList>
+
+            {/* Usage Analytics Tab */}
+            <TabsContent value="analytics" className="space-y-4">
+              <UsageAnalytics />
+            </TabsContent>
 
             {/* Content Moderation Tab */}
             <TabsContent value="moderation" className="space-y-4">
