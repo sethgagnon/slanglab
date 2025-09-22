@@ -229,11 +229,11 @@ const Account = () => {
   const getPlanFeatures = (plan: string) => {
     switch (plan) {
       case 'SearchPro':
-        return ['Unlimited searches', '1 creation per week', 'Advanced features'];
+        return ['Unlimited searches', '3 AI creations per week', '5 manual creations per week', 'Priority support'];
       case 'LabPro':
-        return ['Unlimited searches', 'Unlimited creations', 'Advanced features'];
+        return ['Unlimited searches', '2 AI creations per day', 'Unlimited manual creations', 'Advanced tracking'];
       default:
-        return ['3 searches per day', '1 creation per week'];
+        return ['1 search per day', '1 AI creation per week', '3 manual creations per week'];
     }
   };
 
@@ -514,7 +514,7 @@ const Account = () => {
                     {usage.plan === 'Free' && (
                       <Button 
                         className="w-full"
-                        onClick={() => handleUpgrade('price_1S8uzhDt8zpU0lE0erSCXXc1')}
+                        onClick={() => handleUpgrade('price_1SADlGDt8zpU0lE0mlv6nVLL')}
                       >
                         <Crown className="w-4 h-4 mr-2" />
                         Upgrade to SearchPro
@@ -582,16 +582,17 @@ const Account = () => {
                       <div className="border rounded-lg p-4">
                         <div className="flex items-center justify-between mb-3">
                           <h3 className="font-semibold">SearchPro</h3>
-                          <Badge>$4.99/mo</Badge>
+                          <Badge>$1.99/mo</Badge>
                         </div>
                         <ul className="text-sm text-muted-foreground space-y-1 mb-4">
                           <li>• Unlimited daily searches</li>
+                          <li>• 3 AI creations per week</li>
+                          <li>• 5 manual creations per week</li>
                           <li>• Priority support</li>
-                          <li>• Advanced filtering</li>
                         </ul>
                         <Button 
                           className="w-full" 
-                          onClick={() => handleUpgrade('price_1S8uzhDt8zpU0lE0erSCXXc1')}
+                          onClick={() => handleUpgrade('price_1SADlGDt8zpU0lE0mlv6nVLL')}
                         >
                           Choose SearchPro
                         </Button>
@@ -599,16 +600,17 @@ const Account = () => {
                       <div className="border rounded-lg p-4">
                         <div className="flex items-center justify-between mb-3">
                           <h3 className="font-semibold">LabPro</h3>
-                          <Badge>$9.99/mo</Badge>
+                          <Badge>$3.99/mo</Badge>
                         </div>
                         <ul className="text-sm text-muted-foreground space-y-1 mb-4">
                           <li>• Everything in SearchPro</li>
-                          <li>• Unlimited creations</li>
-                          <li>• Advanced tracking</li>
+                          <li>• 2 AI creations per day</li>
+                          <li>• Unlimited manual creations</li>
+                          <li>• Advanced tracking & analytics</li>
                         </ul>
                         <Button 
                           className="w-full" 
-                          onClick={() => handleUpgrade('price_1S8uzhDt8zpU0lE0erSCXXc2')}
+                          onClick={() => handleUpgrade('price_1SADlfDt8zpU0lE0Ya1QqVlL')}
                         >
                           Choose LabPro
                         </Button>

@@ -15,8 +15,12 @@ const logStep = (step: string, details?: any) => {
 
 // Map Stripe price IDs to our plan names
 const PRICE_TO_PLAN = {
-  "price_1S8uzhDt8zpU0lE0erSCXXc1": "SearchPro", // SearchPro $3/month
-  "price_1S8uztDt8zpU0lE0z8emJyw3": "LabPro",    // LabPro $5/month
+  // Legacy pricing (deprecated but kept for existing subscribers)
+  "price_1S8uzhDt8zpU0lE0erSCXXc1": "SearchPro", // SearchPro $3/month (old)
+  "price_1S8uztDt8zpU0lE0z8emJyw3": "LabPro",    // LabPro $5/month (old)
+  // New pricing (current)
+  "price_1SADlGDt8zpU0lE0mlv6nVLL": "SearchPro", // SearchPro $1.99/month (new)
+  "price_1SADlfDt8zpU0lE0Ya1QqVlL": "LabPro",    // LabPro $3.99/month (new)
 };
 
 serve(async (req) => {
@@ -59,12 +63,7 @@ serve(async (req) => {
       // Update profile to ensure it's set to Free plan
       await supabaseClient
         .from('profiles')
-        .update({ 
-          plan: 'Free',
-          subscription_status: null,
-          subscription_id: null,
-          current_period_end: null
-        })
+        .update({ plan: 'free' })
         .eq('user_id', user.id);
       
       return new Response(JSON.stringify({ 
@@ -109,31 +108,41 @@ serve(async (req) => {
         priceId 
       });
 
-      // Update profile with subscription info
+      // Update profile with subscription info  
       await supabaseClient
         .from('profiles')
-        .update({ 
-          plan,
+        .update({ plan: plan.toLowerCase() })
+        .eq('user_id', user.id);
+        
+      // Update secure payment info
+      await supabaseClient
+        .from('secure_payment_info')
+        .upsert({ 
+          user_id: user.id,
           stripe_customer_id: customerId,
           subscription_id: subscriptionId,
           subscription_status: subscriptionStatus,
           current_period_end: subscriptionEnd
-        })
-        .eq('user_id', user.id);
+        });
     } else {
       logStep("No active subscription found");
       
       // Update profile to Free plan
       await supabaseClient
         .from('profiles')
-        .update({ 
-          plan: 'Free',
+        .update({ plan: 'free' })
+        .eq('user_id', user.id);
+        
+      // Update secure payment info
+      await supabaseClient
+        .from('secure_payment_info')
+        .upsert({ 
+          user_id: user.id,
           stripe_customer_id: customerId,
           subscription_status: null,
           subscription_id: null,
           current_period_end: null
-        })
-        .eq('user_id', user.id);
+        });
     }
 
     return new Response(JSON.stringify({

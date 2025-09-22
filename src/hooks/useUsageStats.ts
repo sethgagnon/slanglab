@@ -18,7 +18,7 @@ export const useUsageStats = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState<UsageStats>({
     searchesUsed: 0,
-    searchesLimit: 3, // Default for Free plan
+    searchesLimit: 1, // Updated Free plan limit
     aiCreationsUsed: 0,
     aiCreationsLimit: 1, // Default for Free plan (weekly)
     manualCreationsUsed: 0,
@@ -97,7 +97,7 @@ export const useUsageStats = () => {
           .maybeSingle();
 
         // Set limits based on role and plan
-        let searchesLimit = 3; // Free plan default
+        let searchesLimit = 1; // Free plan reduced to 1 per day
         let aiCreationsLimit = 1; // Free plan gets 1 AI per week
         let manualCreationsLimit = 3; // Free plan gets 3 manual per week
 
@@ -108,11 +108,11 @@ export const useUsageStats = () => {
           manualCreationsLimit = -1; // Unlimited
         } else if (userPlan === 'SearchPro') {
           searchesLimit = -1; // Unlimited
-          aiCreationsLimit = 1; // Still 1 AI per week for SearchPro
-          manualCreationsLimit = 3; // Still 3 manual per week for SearchPro
+          aiCreationsLimit = 3; // Enhanced: 3 AI per week for SearchPro
+          manualCreationsLimit = 5; // Enhanced: 5 manual per week for SearchPro
         } else if (userPlan === 'LabPro') {
           searchesLimit = -1; // Unlimited
-          aiCreationsLimit = 1; // 1 AI per day for LabPro
+          aiCreationsLimit = 2; // Enhanced: 2 AI per day for LabPro
           manualCreationsLimit = -1; // Unlimited manual for LabPro
         }
 

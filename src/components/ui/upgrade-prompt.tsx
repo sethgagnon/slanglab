@@ -19,7 +19,7 @@ export const UpgradePrompt: React.FC<UpgradePromptProps> = ({
       case 'signup-required':
         return {
           title: 'Free Search Used',
-          description: 'You\'ve used your 1 free search. Create an account to get 3 daily searches!',
+          description: 'You\'ve used your 1 free search. Create an account to get 1 daily search plus creation features!',
           action: (
             <Button asChild className="w-full">
               <Link to="/auth">Create Free Account</Link>
@@ -30,7 +30,7 @@ export const UpgradePrompt: React.FC<UpgradePromptProps> = ({
       case 'search-limit':
         return {
           title: 'Daily Search Limit Reached',
-          description: 'You\'ve used all 3 daily searches. Upgrade for unlimited access!',
+          description: 'You\'ve used your daily search. Upgrade for unlimited access!',
           action: (
             <div className="space-y-3">
               <div className="grid gap-3">
@@ -38,22 +38,26 @@ export const UpgradePrompt: React.FC<UpgradePromptProps> = ({
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-medium">SearchPro</h4>
                     <Badge className="bg-primary text-primary-foreground">
-                      <Zap className="w-3 h-3 mr-1" />$3/mo
+                      <Zap className="w-3 h-3 mr-1" />$1.99/mo
                     </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-3">Unlimited searches</p>
-                  <Button className="w-full" size="sm">Upgrade to SearchPro</Button>
+                  <p className="text-sm text-muted-foreground mb-3">Unlimited searches + 3 AI creations/week</p>
+                  <Button className="w-full" size="sm" asChild>
+                    <Link to="/account">Upgrade to SearchPro</Link>
+                  </Button>
                 </div>
                 
                 <div className="border rounded-lg p-3">
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-medium">LabPro</h4>
                     <Badge className="bg-primary text-primary-foreground">
-                      <Crown className="w-3 h-3 mr-1" />$5/mo
+                      <Crown className="w-3 h-3 mr-1" />$3.99/mo
                     </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-3">Unlimited searches + 25 slang creations/month</p>
-                  <Button className="w-full" size="sm" variant="outline">Upgrade to LabPro</Button>
+                  <p className="text-sm text-muted-foreground mb-3">Unlimited searches + 2 AI creations/day</p>
+                  <Button className="w-full" size="sm" variant="outline" asChild>
+                    <Link to="/account">Upgrade to LabPro</Link>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -62,12 +66,14 @@ export const UpgradePrompt: React.FC<UpgradePromptProps> = ({
       
       case 'creation-limit':
         return {
-          title: 'Monthly Creation Limit Reached',
-          description: 'You\'ve used all 25 monthly slang creations. Limits reset next month.',
+          title: 'Creation Limit Reached',
+          description: 'You\'ve used your creation allowance. Upgrade for more AI creations and unlimited manual creations!',
           action: (
-            <Button asChild className="w-full">
-              <Link to="/account">View Account</Link>
-            </Button>
+            <div className="space-y-3">
+              <Button asChild className="w-full">
+                <Link to="/account">Upgrade Your Plan</Link>
+              </Button>
+            </div>
           )
         };
       
