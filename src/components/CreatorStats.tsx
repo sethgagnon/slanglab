@@ -58,6 +58,12 @@ const CreatorStats: React.FC = () => {
 
       if (statsError) throw statsError;
 
+      // If no creator stats exist, calculate from raw data
+      let calculatedStats = null;
+      if (!creatorStats) {
+        calculatedStats = await calculateStatsFromRawData();
+      }
+
       // Fetch achievements
       const { data: achievements, error: achievementsError } = await supabase
         .from('achievements')
@@ -84,18 +90,25 @@ const CreatorStats: React.FC = () => {
         data: (a.achievement_data as any) || {}
       }));
 
+      const stats = creatorStats || calculatedStats;
+      
       setStats({
-        totalCreations: creatorStats?.total_creations || 0,
-        totalViralScore: creatorStats?.total_viral_score || 0,
-        bestCreationId: creatorStats?.best_creation_id || null,
-        favoriteVibe: creatorStats?.favorite_vibe || null,
-        daysActive: creatorStats?.days_active || 0,
-        longestStreak: creatorStats?.longest_streak || 0,
-        currentStreak: creatorStats?.current_streak || 0,
-        isPublic: creatorStats?.is_public ?? true,
+        totalCreations: stats?.total_creations || 0,
+        totalViralScore: stats?.total_viral_score || 0,
+        bestCreationId: stats?.best_creation_id || null,
+        favoriteVibe: stats?.favorite_vibe || null,
+        daysActive: stats?.days_active || 0,
+        longestStreak: stats?.longest_streak || 0,
+        currentStreak: stats?.current_streak || 0,
+        isPublic: stats?.is_public ?? true,
         achievements: formattedAchievements,
         currentRank: leaderboardEntry?.rank_position || null
       });
+
+      // If we calculated stats, save them for future use
+      if (!creatorStats && calculatedStats) {
+        await syncCalculatedStats(calculatedStats);
+      }
 
     } catch (error: any) {
       console.error('Error fetching creator stats:', error);
@@ -106,6 +119,127 @@ const CreatorStats: React.FC = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const calculateStatsFromRawData = async () => {
+    if (!user) return null;
+
+    try {
+      // Fetch all user creations
+      const { data: creations } = await supabase
+        .from('creations')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+
+      // Fetch monitoring data for viral scores
+      const { data: monitoring } = await supabase
+        .from('creation_monitoring')
+        .select('trending_score, times_found')
+        .eq('user_id', user.id);
+
+      if (!creations) return null;
+
+      // Calculate total creations
+      const totalCreations = creations.length;
+
+      // Calculate viral score from monitoring data
+      const totalViralScore = (monitoring || []).reduce((sum, m) => 
+        sum + (m.trending_score || 0) + (m.times_found || 0), 0);
+
+      // Calculate favorite vibe
+      const vibeCount: Record<string, number> = {};
+      creations.forEach(creation => {
+        if (creation.vibe) {
+          vibeCount[creation.vibe] = (vibeCount[creation.vibe] || 0) + 1;
+        }
+      });
+      const favoriteVibe = Object.entries(vibeCount).length > 0 
+        ? Object.entries(vibeCount).sort(([,a], [,b]) => b - a)[0][0] 
+        : null;
+
+      // Calculate days active and streaks
+      const creationDates = creations.map(c => new Date(c.created_at).toDateString());
+      const uniqueDates = [...new Set(creationDates)].sort();
+      const daysActive = uniqueDates.length;
+
+      // Calculate current and longest streak
+      let currentStreak = 0;
+      let longestStreak = 0;
+      let tempStreak = 0;
+      
+      if (uniqueDates.length > 0) {
+        const today = new Date().toDateString();
+        const yesterday = new Date(Date.now() - 86400000).toDateString();
+        
+        // Check if user was active today or yesterday for current streak
+        const lastActiveDate = uniqueDates[uniqueDates.length - 1];
+        if (lastActiveDate === today || lastActiveDate === yesterday) {
+          // Calculate current streak backwards from last active date
+          for (let i = uniqueDates.length - 1; i >= 0; i--) {
+            const currentDate = new Date(uniqueDates[i]);
+            const expectedDate = new Date(uniqueDates[uniqueDates.length - 1]);
+            expectedDate.setDate(expectedDate.getDate() - (uniqueDates.length - 1 - i));
+            
+            if (currentDate.toDateString() === expectedDate.toDateString()) {
+              currentStreak++;
+            } else {
+              break;
+            }
+          }
+        }
+
+        // Calculate longest streak
+        for (let i = 0; i < uniqueDates.length; i++) {
+          if (i === 0) {
+            tempStreak = 1;
+          } else {
+            const prevDate = new Date(uniqueDates[i - 1]);
+            const currDate = new Date(uniqueDates[i]);
+            const diffInDays = (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24);
+            
+            if (diffInDays === 1) {
+              tempStreak++;
+            } else {
+              longestStreak = Math.max(longestStreak, tempStreak);
+              tempStreak = 1;
+            }
+          }
+        }
+        longestStreak = Math.max(longestStreak, tempStreak);
+      }
+
+      return {
+        total_creations: totalCreations,
+        total_viral_score: totalViralScore,
+        favorite_vibe: favoriteVibe,
+        days_active: daysActive,
+        current_streak: currentStreak,
+        longest_streak: longestStreak,
+        is_public: true,
+        best_creation_id: null
+      };
+    } catch (error) {
+      console.error('Error calculating stats:', error);
+      return null;
+    }
+  };
+
+  const syncCalculatedStats = async (calculatedStats: any) => {
+    if (!user || !calculatedStats) return;
+
+    try {
+      await supabase
+        .from('creator_stats')
+        .upsert({
+          user_id: user.id,
+          ...calculatedStats,
+          updated_at: new Date().toISOString()
+        });
+    } catch (error) {
+      console.error('Error syncing calculated stats:', error);
+      // Don't throw - this is just for optimization
     }
   };
 
