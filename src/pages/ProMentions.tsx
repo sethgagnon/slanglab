@@ -13,6 +13,7 @@ import { EvidenceCard } from "@/components/EvidenceCard";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { ProtectedFeature } from "@/components/ProtectedFeature";
 
 interface Sighting {
   id: string;
@@ -29,7 +30,7 @@ interface Sighting {
 const ProMentions = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, hasLabProAccess } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   
   const termSlug = searchParams.get('term');
@@ -38,18 +39,6 @@ const ProMentions = () => {
   const [scoreFilter, setScoreFilter] = useState('all');
   const [page, setPage] = useState(1);
   const pageSize = 20;
-
-  useEffect(() => {
-    if (!hasLabProAccess) {
-      toast({
-        title: "LabPro Required",
-        description: "This feature requires a LabPro subscription.",
-        variant: "destructive",
-      });
-      navigate('/');
-      return;
-    }
-  }, [hasLabProAccess, navigate, toast]);
 
   const { data: termData } = useQuery({
     queryKey: ["term", termSlug],
@@ -126,10 +115,6 @@ const ProMentions = () => {
     URL.revokeObjectURL(url);
   };
 
-  if (!hasLabProAccess) {
-    return null;
-  }
-
   if (!termSlug || !termData) {
     return (
       <div className="min-h-screen bg-background p-4">
@@ -147,140 +132,142 @@ const ProMentions = () => {
   const totalPages = Math.ceil((sightingsData?.total || 0) / pageSize);
 
   return (
-    <div className="min-h-screen bg-background">
-      <SEOHead
-        title={`${termData.text} - All Mentions | LabPro`}
-        description={`Comprehensive tracking dashboard for "${termData.text}". View all mentions with advanced filtering and analytics.`}
-      />
-      
-      <div className="max-w-7xl mx-auto p-4 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+    <ProtectedFeature config={{ requiresLabPro: true }} showCard={false}>
+      <div className="min-h-screen bg-background">
+        <SEOHead
+          title={`${termData.text} - All Mentions | LabPro`}
+          description={`Comprehensive tracking dashboard for "${termData.text}". View all mentions with advanced filtering and analytics.`}
+        />
+        
+        <div className="max-w-7xl mx-auto p-4 space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                onClick={() => navigate(`/t/${termSlug}`)}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Summary
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold">{termData.text}</h1>
+                <p className="text-muted-foreground">All Mentions</p>
+              </div>
+            </div>
+            
             <Button
+              onClick={handleExport}
               variant="outline"
-              onClick={() => navigate(`/t/${termSlug}`)}
               className="flex items-center gap-2"
+              disabled={!sightingsData?.sightings?.length}
             >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Summary
+              <Download className="h-4 w-4" />
+              Export CSV
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold">{termData.text}</h1>
-              <p className="text-muted-foreground">All Mentions</p>
-            </div>
           </div>
-          
-          <Button
-            onClick={handleExport}
-            variant="outline"
-            className="flex items-center gap-2"
-            disabled={!sightingsData?.sightings?.length}
-          >
-            <Download className="h-4 w-4" />
-            Export CSV
-          </Button>
-        </div>
 
-        {/* Filters */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Filter className="h-5 w-5" />
-              Filters
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search mentions..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+          {/* Filters */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                Filters
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search mentions..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                
+                <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Sources" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sources</SelectItem>
+                    <SelectItem value="google_cse">Google Search</SelectItem>
+                    <SelectItem value="news_api">News API</SelectItem>
+                    <SelectItem value="reddit">Reddit</SelectItem>
+                    <SelectItem value="twitter">Twitter</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Select value={scoreFilter} onValueChange={setScoreFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Scores" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Scores</SelectItem>
+                    <SelectItem value="80">Verified (80+)</SelectItem>
+                    <SelectItem value="60">Likely (60+)</SelectItem>
+                    <SelectItem value="40">Review (40+)</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <div className="flex items-center justify-between">
+                  <Badge variant="outline">
+                    {sightingsData?.total || 0} mentions
+                  </Badge>
+                  {totalPages > 1 && (
+                    <span className="text-sm text-muted-foreground">
+                      Page {page} of {totalPages}
+                    </span>
+                  )}
+                </div>
               </div>
-              
-              <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Sources" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Sources</SelectItem>
-                  <SelectItem value="google_cse">Google Search</SelectItem>
-                  <SelectItem value="news_api">News API</SelectItem>
-                  <SelectItem value="reddit">Reddit</SelectItem>
-                  <SelectItem value="twitter">Twitter</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select value={scoreFilter} onValueChange={setScoreFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Scores" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Scores</SelectItem>
-                  <SelectItem value="80">Verified (80+)</SelectItem>
-                  <SelectItem value="60">Likely (60+)</SelectItem>
-                  <SelectItem value="40">Review (40+)</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <div className="flex items-center justify-between">
-                <Badge variant="outline">
-                  {sightingsData?.total || 0} mentions
-                </Badge>
-                {totalPages > 1 && (
-                  <span className="text-sm text-muted-foreground">
-                    Page {page} of {totalPages}
-                  </span>
-                )}
-              </div>
+            </CardContent>
+          </Card>
+
+          {/* Results */}
+          <div className="space-y-4">
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-32 w-full" />
+              ))
+            ) : sightingsData?.sightings?.length ? (
+              sightingsData.sightings.map((sighting) => (
+                <EvidenceCard key={sighting.id} sighting={sighting} />
+              ))
+            ) : (
+              <Card>
+                <CardContent className="pt-6 text-center">
+                  <p className="text-muted-foreground">No mentions found with current filters.</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
+                Next
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Results */}
-        <div className="space-y-4">
-          {isLoading ? (
-            Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-32 w-full" />
-            ))
-          ) : sightingsData?.sightings?.length ? (
-            sightingsData.sightings.map((sighting) => (
-              <EvidenceCard key={sighting.id} sighting={sighting} />
-            ))
-          ) : (
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <p className="text-muted-foreground">No mentions found with current filters.</p>
-              </CardContent>
-            </Card>
           )}
         </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex justify-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-            >
-              Next
-            </Button>
-          </div>
-        )}
       </div>
-    </div>
+    </ProtectedFeature>
   );
 };
 

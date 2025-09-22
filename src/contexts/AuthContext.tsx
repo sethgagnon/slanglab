@@ -7,7 +7,10 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  profileLoading: boolean;
+  isAdmin: boolean;
   hasLabProAccess: boolean;
+  hasFullAccess: boolean;
   signUp: (email: string, password: string, name?: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -32,7 +35,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const { data: profileData } = useQuery({
+  const { data: profileData, isLoading: profileLoading } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
@@ -47,7 +50,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     enabled: !!user?.id,
   });
 
-  const hasLabProAccess = profileData?.plan === 'labpro' || profileData?.role === 'admin';
+  // Centralized access control logic
+  const isAdmin = profileData?.role === 'admin';
+  const hasLabProAccess = isAdmin || profileData?.plan === 'labpro';
+  const hasFullAccess = isAdmin; // Admins get unlimited access to everything
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -101,7 +107,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     session,
     loading,
+    profileLoading,
+    isAdmin,
     hasLabProAccess,
+    hasFullAccess,
     signUp,
     signIn,
     signOut,

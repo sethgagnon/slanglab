@@ -8,6 +8,7 @@ import { ArrowLeft, ExternalLink, TrendingUp, Eye } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { SparklineChart } from "@/components/SparklineChart";
 import { EvidenceCard } from "@/components/EvidenceCard";
+import { ProtectedFeature } from "@/components/ProtectedFeature";
 
 const TermDetail = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -166,13 +167,18 @@ const TermDetail = () => {
               <p className="text-muted-foreground">
                 Access the full tracking dashboard with advanced filtering and analytics.
               </p>
-              <Button
-                onClick={() => navigate(`/pro/mentions?term=${term.slug}`)}
-                className="flex items-center gap-2"
+              <ProtectedFeature
+                config={{ requiresLabPro: true }}
+                showCard={false}
               >
-                <ExternalLink className="h-4 w-4" />
-                View All Mentions
-              </Button>
+                <Button
+                  onClick={() => navigate(`/pro/mentions?term=${term.slug}`)}
+                  className="flex items-center gap-2"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  View All Mentions
+                </Button>
+              </ProtectedFeature>
             </div>
           </CardContent>
         </Card>
