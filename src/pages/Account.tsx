@@ -66,6 +66,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ShareTrackModal } from '@/components/ShareTrackModal';
 import { FeatureDisclosure } from '@/components/ui/feature-disclosure';
 import { SmartSegmentationCta } from '@/components/ui/smart-segmentation-cta';
+import { EnhancedPlanComparison } from '@/components/ui/enhanced-plan-comparison';
 import CreatorStats from '@/components/CreatorStats';
 import { formatDistanceToNow } from 'date-fns';
 

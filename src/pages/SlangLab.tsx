@@ -35,6 +35,7 @@ import { SoftGatePrompt } from '@/components/ui/soft-gate-prompt';
 import { FeatureDisclosure } from '@/components/ui/feature-disclosure';
 import { TimeBasedPrompt } from '@/components/ui/time-based-prompt';
 import { SmartSegmentationCta } from '@/components/ui/smart-segmentation-cta';
+import { TrialOffer } from '@/components/ui/trial-offer';
 import { ManualSlangForm } from '@/components/ManualSlangForm';
 import { ReportButton } from '@/components/ReportButton';
 import { AgeVerificationModal } from '@/components/AgeVerificationModal';
@@ -215,15 +216,20 @@ const SlangLab = () => {
       } catch (error: any) {
         console.error('Generation error:', error);
         
-        // Show specific upgrade prompt for limit errors
+        // Show trial offer for limit errors if eligible
         if (error.message?.includes('limit') || error.message?.includes('quota')) {
-          // This will be handled by the UpgradePrompt component below
+          setGenerationStatus({
+            isFromAI: false,
+            message: 'limit_reached', // Special flag for trial offer
+            canRetry: false
+          });
+        } else {
           setGenerationStatus({
             isFromAI: false,
             message: error.message,
             canRetry: false
           });
-        } else {
+          
           toast({
             title: "Generation failed",
             description: error.message || "Unable to generate new slang. Please try again.",
@@ -496,10 +502,18 @@ const SlangLab = () => {
                 {generationStatus && (
                   <Card className="mx-auto max-w-2xl">
                     <CardContent className="p-4">
-                      {generationStatus.message?.includes('limit') || generationStatus.message?.includes('quota') ? (
+                      {generationStatus.message === 'limit_reached' ? (
+                        <TrialOffer 
+                          recommendedPlan={aiCreationsUsed >= aiCreationsLimit ? 'LabPro' : 'SearchPro'}
+                          trigger="limit_reached"
+                          variant="card"
+                          onTrialStart={() => setGenerationStatus(null)}
+                        />
+                      ) : generationStatus.message?.includes('limit') || generationStatus.message?.includes('quota') ? (
                         <UpgradePrompt 
                           type="creation-limit" 
                           className="border-0 shadow-none p-0"
+                          showStreamlined={true}
                         />
                       ) : (
                         <div className="flex items-center space-x-2">
