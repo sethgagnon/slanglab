@@ -1641,6 +1641,24 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_public_creator_overview: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          total_creators: number
+          total_public_creations: number
+        }[]
+      }
+      get_public_term_info: {
+        Args: { term_slug: string }
+        Returns: {
+          created_at: string
+          id: string
+          normalized_text: string
+          original_text: string
+          slug: string
+          text: string
+        }[]
+      }
       get_secure_user_profile: {
         Args: { target_user_id: string }
         Returns: {
@@ -1706,6 +1724,10 @@ export type Database = {
       update_anonymized_ips: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      user_can_access_profile: {
+        Args: { target_user_id: string }
+        Returns: boolean
       }
       user_can_create_content: {
         Args: { user_uuid: string }
