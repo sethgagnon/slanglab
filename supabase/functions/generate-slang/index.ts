@@ -7,6 +7,27 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Robust retry function with exponential backoff + jitter
+async function withBackoff<T>(fn: () => Promise<T>, max = 5): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      const status = err?.status ?? err?.response?.status ?? 0;
+      const headers = err?.response?.headers;
+      // Retry only on 429 and 5xx
+      const shouldRetry = status === 429 || (status >= 500 && status <= 599);
+      if (!shouldRetry || attempt >= max) throw err;
+      // Honor Retry-After if present
+      const retryAfter = headers?.get?.("retry-after");
+      const base = Math.min(30000, 400 * (2 ** attempt));
+      const jitter = Math.random() * 300;
+      const delay = retryAfter ? Number(retryAfter) * 1000 : base + jitter;
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+}
+
 // Phase 1: Safety Backbone + Age Controls - Enhanced Content Policy
 type AgeBand = '11-13' | '14-17' | '18+';
 
@@ -281,16 +302,26 @@ async function moderateInput(text: string): Promise<{ flagged: boolean; reason?:
   }
 
   try {
-    const response = await fetch('https://api.openai.com/v1/moderations', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        input: text,
-        model: 'omni-moderation-latest'
-      }),
+    const response = await withBackoff(async () => {
+      const resp = await fetch('https://api.openai.com/v1/moderations', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          input: text,
+          model: 'omni-moderation-latest'
+        }),
+      });
+      
+      if (!resp.ok) {
+        const e: any = new Error(`OpenAI Moderation ${resp.status}`);
+        e.status = resp.status;
+        e.response = resp;
+        throw e;
+      }
+      return resp;
     });
 
     if (!response.ok) {
@@ -778,81 +809,47 @@ Focus on creating fresh, authentic slang that captures the combined "${vibePromp
 
   try {
     const apiCallStart = Date.now();
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-5-mini-2025-08-07',
-        messages: [
-          {
-            role: 'system',
-            content: systemPrompt
-          },
-          {
-            role: 'user',
-            content: `Generate ${params.ageBand} age-appropriate slang with vibes: "${vibeTags.join(', ')}", context: "${context}", format: "${format}". School-safe: ${params.schoolSafe}. Return JSON only.`
+    const response = await withBackoff(async () => {
+      const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-5-mini-2025-08-07',
+          messages: [
+            {
+              role: 'system',
+              content: systemPrompt
+            },
+            {
+              role: 'user',
+              content: `Generate ${params.ageBand} age-appropriate slang with vibes: "${vibeTags.join(', ')}", context: "${context}", format: "${format}". School-safe: ${params.schoolSafe}. Return JSON only.`
+            }
+          ],
+          max_completion_tokens: 800, // Reduced for 1-3 items instead of 5
+          temperature: 0.8, // Fixed creativity for consistency
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "slang_generation",
+              strict: true,
+              schema: slangJsonSchema
+            }
           }
-        ],
-        max_completion_tokens: 800, // Reduced for 1-3 items instead of 5
-        temperature: 0.8, // Fixed creativity for consistency
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "slang_generation",
-            strict: true,
-            schema: slangJsonSchema
-          }
-        }
-      }),
-    });
-    const apiCallEnd = Date.now();
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`OpenAI API error: ${response.status} - ${errorText}`);
-      
-      // Log failed API call
-      await logAPIUsage({
-        api_provider: 'openai',
-        api_endpoint: 'chat/completions',
-        request_type: 'generation',
-        status: response.status,
-        error_message: `OpenAI API error: ${response.status} - ${errorText}`,
-        processing_time_ms: apiCallEnd - apiCallStart,
-        request_data: { model: 'gpt-5-mini-2025-08-07', vibe: vibeTags.join(','), ageBand: params.ageBand },
-        estimated_cost: 0.01
+        }),
       });
       
-      // Handle rate limiting with exponential backoff
-      if (response.status === 429 && retryCount < 3) {
-        const backoffDelay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-        console.log(`Rate limited. Retrying in ${backoffDelay}ms (attempt ${retryCount + 1}/3)`);
-        
-        await new Promise(resolve => setTimeout(resolve, backoffDelay));
-        return generateSlang(vibeTags, context, format, params, retryCount + 1);
+      if (!resp.ok) {
+        const e: any = new Error(`OpenAI ${resp.status}`);
+        e.status = resp.status;
+        e.response = resp;
+        throw e;
       }
-      
-      // Enhanced fallback - try cache first, then predefined
-      const fallbackFromCache = await getFallbackFromCache(vibeTags.join(','));
-      if (fallbackFromCache) {
-        console.log('Using cache fallback');
-        return { creations: fallbackFromCache, isFromAI: false, error: 'OpenAI API error - using cached content' };
-      }
-      
-      console.log('Using predefined fallback');
-      const errorMsg = response.status === 429 
-        ? 'OpenAI rate limit exceeded. Using creative fallback content.' 
-        : `OpenAI API error: ${response.status}`;
-        
-      return { 
-        creations: getFallbackCreations(vibeTags[0]), 
-        isFromAI: false,
-        error: errorMsg
-      };
-    }
+      return resp;
+    });
+    const apiCallEnd = Date.now();
 
     const data = await response.json();
     const content = data.choices[0].message.content;
@@ -920,8 +917,20 @@ Focus on creating fresh, authentic slang that captures the combined "${vibePromp
         error: 'Invalid AI response format'
       };
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('OpenAI API error:', error);
+    
+    // Log failed API call after retry exhaustion
+    await logAPIUsage({
+      api_provider: 'openai',
+      api_endpoint: 'chat/completions',
+      request_type: 'generation',
+      status: error?.status ?? 429,
+      error_message: `OpenAI API error after retries: ${error?.message}`,
+      processing_time_ms: Date.now() - Date.now(), // Will be recalculated
+      request_data: { model: 'gpt-5-mini-2025-08-07', vibe: vibeTags.join(','), ageBand: params.ageBand },
+      estimated_cost: 0.01
+    });
     
     // Enhanced fallback - try cache first, then predefined
     const fallbackFromCache = await getFallbackFromCache(vibeTags.join(','));
@@ -931,10 +940,14 @@ Focus on creating fresh, authentic slang that captures the combined "${vibePromp
     }
     
     console.log('Using predefined fallback due to error');
+    const errorMsg = error?.status === 429 
+      ? 'OpenAI rate limit exceeded. Using creative fallback content.' 
+      : `OpenAI API error: ${error?.message || 'Unknown error'}`;
+        
     return { 
       creations: getFallbackCreations(vibeTags[0]), 
       isFromAI: false,
-      error: error.message || 'Unknown API error'
+      error: errorMsg
     };
   }
 }
@@ -1109,16 +1122,26 @@ async function moderateCreations(creations: any[]) {
     // 3. OpenAI Output Moderation API check (using omni-moderation-latest)
     if (openaiApiKey) {
       try {
-        const moderationResponse = await fetch('https://api.openai.com/v1/moderations', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openaiApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            input: `${creation.phrase}: ${creation.meaning}. Example: ${creation.example}`,
-            model: 'omni-moderation-latest'
-          }),
+        const moderationResponse = await withBackoff(async () => {
+          const resp = await fetch('https://api.openai.com/v1/moderations', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${openaiApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              input: `${creation.phrase}: ${creation.meaning}. Example: ${creation.example}`,
+              model: 'omni-moderation-latest'
+            }),
+          });
+          
+          if (!resp.ok) {
+            const e: any = new Error(`OpenAI Moderation ${resp.status}`);
+            e.status = resp.status;
+            e.response = resp;
+            throw e;
+          }
+          return resp;
         });
 
         if (moderationResponse.ok) {
