@@ -154,6 +154,32 @@ function buildUserMsg(input: {
   return parts.join(" | ");
 }
 
+// Clean structured formatting from meaning field
+function cleanMeaningField(meaning: string): string {
+  if (!meaning) return meaning;
+  
+  // Remove "Context: [text] | Vibe: [text] | Audience: [text]" patterns
+  let cleaned = meaning;
+  
+  // If it contains structured format, extract just the content after "Context:"
+  if (cleaned.includes('Context:') && cleaned.includes('|')) {
+    const contextMatch = cleaned.match(/Context:\s*([^|]+)/);
+    if (contextMatch) {
+      cleaned = contextMatch[1].trim();
+    }
+  }
+  
+  // Remove any remaining structured patterns
+  cleaned = cleaned
+    .replace(/\s*\|\s*Vibe:\s*[^|]*/gi, '')
+    .replace(/\s*\|\s*Audience:\s*[^|]*/gi, '')
+    .replace(/^Context:\s*/i, '')
+    .replace(/\s*\|\s*$/, '')
+    .trim();
+  
+  return cleaned;
+}
+
 function mapOpenAIToCreations(data: any): Creation[] {
   const msg = data?.choices?.[0]?.message?.content ?? data?.choices?.[0]?.text ?? "";
   const text = isString(msg) ? msg.trim() : "";
@@ -170,9 +196,9 @@ function mapOpenAIToCreations(data: any): Creation[] {
         if (parsed.phrase && parsed.meaning) {
           return [{
             phrase: parsed.phrase,
-            meaning: parsed.meaning,
+            meaning: cleanMeaningField(parsed.meaning),
             example: parsed.example || generateNaturalExample(parsed.phrase),
-            text: `${parsed.phrase}: ${parsed.meaning}`
+            text: `${parsed.phrase}: ${cleanMeaningField(parsed.meaning)}`
           }];
         }
       }
@@ -194,9 +220,9 @@ function mapOpenAIToCreations(data: any): Creation[] {
       console.log('Using fallback example generation for pipe format');
       return [{
         phrase,
-        meaning,
+        meaning: cleanMeaningField(meaning),
         example: generateNaturalExample(phrase),
-        text: `${phrase}: ${meaning}`
+        text: `${phrase}: ${cleanMeaningField(meaning)}`
       }];
     }
     
@@ -214,9 +240,9 @@ function mapOpenAIToCreations(data: any): Creation[] {
       console.log('Using fallback example generation for colon format');
       return [{
         phrase,
-        meaning,
+        meaning: cleanMeaningField(meaning),
         example: generateNaturalExample(phrase),
-        text: `${phrase}: ${meaning}`
+        text: `${phrase}: ${cleanMeaningField(meaning)}`
       }];
     }
     
@@ -234,9 +260,9 @@ function mapOpenAIToCreations(data: any): Creation[] {
       console.log('Using fallback example generation for dash format');
       return [{
         phrase,
-        meaning,
+        meaning: cleanMeaningField(meaning),
         example: generateNaturalExample(phrase),
-        text: `${phrase}: ${meaning}`
+        text: `${phrase}: ${cleanMeaningField(meaning)}`
       }];
     }
     
