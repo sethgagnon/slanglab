@@ -12,7 +12,7 @@ Disallow: /auth
 Crawl-delay: 1
 
 # Sitemap location
-Sitemap: https://slang-decoder-lab.lovable.app/sitemap.xml
+Sitemap: https://slanglab.app/sitemap.xml
 
 # Allow specific bots full access to public areas
 User-agent: Googlebot
