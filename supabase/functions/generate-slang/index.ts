@@ -96,6 +96,33 @@ async function diagResponse(e: any, source: "openai"|"supabase"|"proxy"|"unknown
 }
 // ---------------- End Diagnostics v2 ----------------
 
+type GenBody = { prompt?: unknown; vibe?: unknown; ageBand?: unknown };
+
+async function readJsonSafe(req: Request): Promise<Record<string, unknown>> {
+  try {
+    const j = await req.json();
+    return (j && typeof j === "object") ? j as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function asString(x: unknown): string | undefined {
+  if (typeof x === "string") return x;
+  return undefined;
+}
+
+function nonEmpty(s: unknown): s is string {
+  return typeof s === "string" && s.trim().length > 0;
+}
+
+function buildUserMsg(parts: Array<string | undefined>): string {
+  // Always operate on an array literal; never call .filter on a maybe-undefined value
+  return parts
+    .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+    .join(" | ");
+}
+
 // ==== PHASE 1: INFLIGHT TRACKING & SINGLE-FLIGHT PROTECTION ====
 const inflight = new Map<string, { promise: Promise<any>, started: number }>();
 const locks = new Map<string, { promise: Promise<void>, started: number }>();
@@ -469,8 +496,9 @@ async function moderateInput(text: string): Promise<{ flagged: boolean; categori
     const result = data.results[0];
     
     if (result.flagged) {
-      const flaggedCategories = Object.keys(result.categories).filter(
-        cat => result.categories[cat]
+      const categories = result.categories || {};
+      const flaggedCategories = Object.keys(categories).filter(
+        cat => categories[cat]
       );
       return { flagged: true, categories: flaggedCategories };
     }
@@ -617,6 +645,7 @@ function getFallbackCreations(vibe: string): any[] {
 }
 
 async function moderateCreations(creations: any[]): Promise<any[]> {
+  if (!Array.isArray(creations)) return [];
   return creations.filter(creation => {
     const text = `${creation.phrase} ${creation.meaning} ${creation.example}`.toLowerCase();
     
@@ -748,18 +777,27 @@ serve(async (req) => {
   }
 
   try {
-    const { vibeTags, context, format, creativity: clientCreativity, schoolSafe: clientSchoolSafe } = await req.json();
+    // Read and validate input
+    const raw = await readJsonSafe(req);
+    const body = raw as GenBody;
+    const prompt = asString(body.prompt);
+    const vibe = asString(body.vibe);
+    const ageBand = asString(body.ageBand);
 
-    // Validate required parameters
-    if (!vibeTags || !Array.isArray(vibeTags) || vibeTags.length === 0) {
-      return new Response(JSON.stringify({ error: 'vibeTags is required and must be a non-empty array' }), {
+    // Validate required field(s) without changing UI contract
+    if (!nonEmpty(prompt)) {
+      const payload = { status: 400, error: "bad_request", detail: "Missing or empty 'prompt'." };
+      return new Response(JSON.stringify(payload), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
       });
     }
 
+    // Build the user message safely. This will never throw.
+    const userMsg = buildUserMsg([vibe, ageBand, prompt]);
+
     // Input moderation
-    const inputText = `${vibeTags.join(' ')} ${context || ''} ${format || ''}`;
+    const inputText = userMsg;
     try {
       const moderation = await moderateInput(inputText);
       if (moderation.flagged) {
@@ -777,7 +815,7 @@ serve(async (req) => {
 
     // (1) DERIVE IDEMPOTENCY + USER KEY
     const baseIdempotencyKey = req.headers.get('X-Idempotency-Key') || 
-      generateIdempotencyKey({ vibeTags, context: context || 'generic', format: format || 'word' });
+      generateIdempotencyKey({ vibeTags: [prompt], context: vibe || 'generic', format: ageBand || 'word' });
 
     let userId: string | null = null;
     let userPlan = 'free';
@@ -995,7 +1033,7 @@ serve(async (req) => {
         attempts = result.attempts || 1;
 
         // (7) MODERATE GENERATED CONTENT
-        const moderatedCreations = await moderateCreations(result.creations);
+        const moderatedCreations = await moderateCreations(Array.isArray(result.creations) ? result.creations : []);
 
         // (8) SAVE TO CACHE
         if (result.isFromAI && moderatedCreations.length > 0) {
