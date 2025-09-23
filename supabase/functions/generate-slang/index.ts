@@ -773,16 +773,6 @@ serve(async (req) => {
       } catch (e: any) {
         return diagResponse(e, "supabase");
       }
-      } else {
-        serverAgePolicy = {
-          ageBand: '11-13',
-          requireSchoolSafe: true,
-          maxCreativity: 0.6,
-          allowedFormats: ['word', 'short_phrase'],
-          allowedContexts: ['homework', 'food', 'sports', 'gaming', 'music', 'generic'],
-          canShare: false
-        };
-      }
     } else {
       serverAgePolicy = {
         ageBand: '11-13',
