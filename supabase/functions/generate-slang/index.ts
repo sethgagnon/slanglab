@@ -7,45 +7,48 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// ==== DIAGNOSTICS: 429 ERROR SOURCE IDENTIFICATION ====
+// ==== ENHANCED DIAGNOSTICS: COMPREHENSIVE ERROR SOURCE IDENTIFICATION ====
+const HEADER_KEYS = [
+  // OpenAI
+  "x-request-id","openai-model",
+  "x-ratelimit-remaining-requests","x-ratelimit-reset-requests",
+  "x-ratelimit-remaining-tokens","x-ratelimit-reset-tokens",
+  "retry-after",
+  // Supabase/Cloudflare
+  "sb-request-id","sb-project-ref","x-sb-edge-region",
+  "cf-ray","server","x-served-by","x-deno-execution-id"
+];
+
 function pickHeaders(h: Headers | undefined | null) {
   if (!h?.get) return {};
-  const keys = [
-    "x-request-id",
-    "openai-model",
-    "x-ratelimit-remaining-requests",
-    "x-ratelimit-reset-requests",
-    "x-ratelimit-remaining-tokens",
-    "x-ratelimit-reset-tokens",
-    "retry-after"
-  ];
-  const out: any = {};
-  for (const k of keys) { 
-    const v = h.get(k); 
-    if (v) out[k] = v; 
-  }
+  const out: Record<string,string> = {};
+  for (const k of HEADER_KEYS) { const v = h.get(k); if (v) out[k] = v; }
   return out;
 }
 
-function diagPayload(e: any, source: "openai"|"supabase"|"proxy"|"unknown", statusFallback = 429) {
-  const status = e?.status ?? e?.response?.status ?? statusFallback;
-  const headers = pickHeaders(e?.response?.headers);
-  return {
-    status,
-    // Preserve existing fields; UI reads these today:
-    error: (e?.error ?? "upstream_error"),
-    detail: String(e?.message ?? e),
-    // Add diagnostics (safe extra field):
-    diag: { source, status, headers }
-  };
+async function safeResponseText(resp: Response | undefined | null) {
+  try {
+    if (!resp?.clone) return undefined;
+    const txt = await resp.clone().text();
+    return txt && txt.length ? txt.slice(0,4000) : undefined;
+  } catch { return undefined; }
 }
 
-function diagResponse(e: any, source: "openai"|"supabase"|"proxy"|"unknown", statusFallback = 429) {
-  const payload = diagPayload(e, source, statusFallback);
-  console.error("[generate-slang diag]", payload);
+async function buildDiag(e: any, source:"openai"|"supabase"|"proxy"|"unknown", statusFallback=429) {
+  const status  = e?.status ?? e?.response?.status ?? statusFallback;
+  const headers = pickHeaders(e?.response?.headers);
+  const body    = await safeResponseText(e?.response);
+  const detail  = typeof e?.message==="string" ? e.message : String(e);
+  return { status, error:(e?.error??"upstream_error"), detail, diag:{source,status,headers,body} };
+}
+
+async function diagResponse(e:any, source:"openai"|"supabase"|"proxy"|"unknown", statusFallback=429) {
+  const payload = await buildDiag(e,source,statusFallback);
+  const reqId = payload.diag.headers["sb-request-id"] || payload.diag.headers["x-request-id"] || "";
+  console.error("[generate-slang diag]", reqId, JSON.stringify(payload));
   return new Response(JSON.stringify(payload), {
     status: payload.status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    headers: { "Content-Type":"application/json","Access-Control-Allow-Origin":"*" }
   });
 }
 
@@ -511,7 +514,7 @@ Return valid JSON matching the schema exactly.`;
     // Apply header-aware pacing after successful request
     await applyRateLimitPacing(resp);
 
-    const data = await response.json();
+    const data = await resp.json();
     const usage = data.usage;
     tokensIn = usage?.prompt_tokens || 0;
     tokensOut = usage?.completion_tokens || 0;
@@ -532,8 +535,9 @@ Return valid JSON matching the schema exactly.`;
     };
 
   } catch (e: any) {
-    // Identify as OpenAI path
-    throw diagResponse(e, "openai");
+    // Enhance OpenAI error with response for better diagnostics
+    e.response = resp;
+    return await diagResponse(e, "openai");
   }
 }
 
@@ -721,7 +725,7 @@ serve(async (req) => {
         });
       }
     } catch (e: any) {
-      return diagResponse(e, "openai");
+      return await diagResponse(e, "openai");
     }
 
     // (1) DERIVE IDEMPOTENCY + USER KEY
@@ -771,7 +775,7 @@ serve(async (req) => {
           };
         }
       } catch (e: any) {
-        return diagResponse(e, "supabase");
+        return await diagResponse(e, "supabase");
       }
     } else {
       serverAgePolicy = {
@@ -997,6 +1001,6 @@ serve(async (req) => {
 
   } catch (e: any) {
     // Global error handler - catch any unexpected errors
-    return diagResponse(e, "unknown", 500);
+    return await diagResponse(e, "unknown", 500);
   }
 });
