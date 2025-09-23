@@ -6,7 +6,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Search, Sparkles, Shield, TrendingUp, User, LogOut, History, Settings } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Search, Sparkles, Shield, TrendingUp, User, LogOut, History, Settings, Menu, CreditCard, Trophy } from 'lucide-react';
 import { useTrendingTerms } from '@/hooks/useTrendingTerms';
 import { SEOHead, createWebsiteSchema } from '@/components/SEOHead';
 import { useAuth } from '@/contexts/AuthContext';
@@ -132,14 +133,14 @@ const Landing = () => {
       />
       <div className="min-h-screen bg-background">
         {/* Header */}
-        <header className="border-b border-border px-4 py-4">
+        <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border px-4 py-4">
           <div className="container mx-auto flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <Sparkles className="h-6 w-6 text-primary" />
               <h1 className="text-xl font-bold">SlangLab</h1>
             </div>
             
-            {/* Main Navigation */}
+            {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center space-x-6">
               <Link to="/lookup" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
                 Decoder
@@ -161,6 +162,62 @@ const Landing = () => {
             </nav>
             
             <div className="flex items-center space-x-2">
+              {/* Mobile Navigation */}
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="md:hidden">
+                    <Menu className="h-5 w-5" />
+                    <span className="sr-only">Toggle navigation menu</span>
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-[300px] sm:w-[400px]">
+                  <SheetHeader>
+                    <SheetTitle className="flex items-center space-x-2">
+                      <Sparkles className="h-6 w-6 text-primary" />
+                      <span>SlangLab</span>
+                    </SheetTitle>
+                  </SheetHeader>
+                  <nav className="mt-6 flex flex-col space-y-4">
+                    <Link 
+                      to="/lookup" 
+                      className="flex items-center space-x-2 text-lg font-medium text-foreground hover:text-primary transition-colors"
+                    >
+                      <Search className="h-5 w-5" />
+                      <span>Decoder</span>
+                    </Link>
+                    <Link 
+                      to="/slang-lab" 
+                      className="flex items-center space-x-2 text-lg font-medium text-foreground hover:text-primary transition-colors"
+                    >
+                      <Sparkles className="h-5 w-5" />
+                      <span>Creator</span>
+                    </Link>
+                    <Link 
+                      to="/pricing" 
+                      className="flex items-center space-x-2 text-lg font-medium text-foreground hover:text-primary transition-colors"
+                    >
+                      <CreditCard className="h-5 w-5" />
+                      <span>Pricing</span>
+                    </Link>
+                    <Link 
+                      to="/leaderboard" 
+                      className="flex items-center space-x-2 text-lg font-medium text-foreground hover:text-primary transition-colors"
+                    >
+                      <Trophy className="h-5 w-5" />
+                      <span>Leaderboard</span>
+                    </Link>
+                    {user && (
+                      <Link 
+                        to="/account?tab=history" 
+                        className="flex items-center space-x-2 text-lg font-medium text-foreground hover:text-primary transition-colors"
+                      >
+                        <History className="h-5 w-5" />
+                        <span>History</span>
+                      </Link>
+                    )}
+                  </nav>
+                </SheetContent>
+              </Sheet>
               {loading ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
               ) : user ? (
