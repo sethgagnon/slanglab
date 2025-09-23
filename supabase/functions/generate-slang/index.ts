@@ -499,10 +499,10 @@ serve(async (req) => {
       ageBand: serverAgePolicy.ageBand,
       creativity: Math.min(Math.max(clientCreativity ?? 0.7, 0.1), serverAgePolicy.maxCreativity),
       schoolSafe: serverAgePolicy.requireSchoolSafe ? true : (clientSchoolSafe ?? true),
-      format: serverAgePolicy.allowedFormats.includes(clientFormat ?? 'word') ? 
-        clientFormat : serverAgePolicy.allowedFormats[0],
-      context: serverAgePolicy.allowedContexts.includes(clientContext ?? 'generic') ? 
-        clientContext : 'generic'
+      format: serverAgePolicy.allowedFormats.includes(format ?? 'word') ? 
+        format : serverAgePolicy.allowedFormats[0],
+      context: serverAgePolicy.allowedContexts.includes(context ?? 'generic') ? 
+        context : 'generic'
     };
 
     console.log('Enforced parameters:', enforcedParams);
