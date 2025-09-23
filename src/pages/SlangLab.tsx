@@ -30,6 +30,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ShareTrackModal } from '@/components/ShareTrackModal';
 import type { Creation as ShareCreation } from '@/hooks/useCreations';
 import { SlangMonitoringDashboard } from '@/components/SlangMonitoringDashboard';
+import { SlangCard } from '@/components/SlangCard';
 import LeaderboardWidget from '@/components/LeaderboardWidget';
 import { useUsageStats } from '@/hooks/useUsageStats';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
@@ -778,7 +779,10 @@ const SlangLab = () => {
                           {generationStatus.isFromAI ? (
                             <CheckCircle className="h-5 w-5 text-green-500" />
                           ) : (
-                            <Badge variant="outline" className="bg-yellow-50">
+                            <Badge 
+                              variant="outline" 
+                              className="bg-secondary/50 text-secondary-foreground border-secondary/30"
+                            >
                               Fallback
                             </Badge>
                           )}
@@ -804,111 +808,26 @@ const SlangLab = () => {
                 </h2>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {creations.map((creation) => (
-                    <Card key={creation.id} className="relative">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <CardTitle className="text-lg">{creation.phrase}</CardTitle>
-                          <div className="flex gap-1">
-                            {creation.safe_flag && (
-                              <Badge variant="secondary" className="text-xs">
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                                Safe
-                              </Badge>
-                            )}
-                            {generationStatus && !generationStatus.isFromAI && (
-                              <Badge variant="outline" className="text-xs bg-blue-50">
-                                Curated
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground mb-1">Meaning</p>
-                          <p className="text-sm">{creation.meaning}</p>
-                        </div>
-                        
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground mb-1">Example</p>
-                          <p className="text-sm italic">"{creation.example}"</p>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="space-y-3 pt-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-1">
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => handleVote(creation.id, 1)}
-                              >
-                                <ThumbsUp className="h-4 w-4" />
-                              </Button>
-                              <span className="text-sm text-muted-foreground px-1">
-                                {creation.votes}
-                              </span>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => handleVote(creation.id, -1)}
-                              >
-                                <ThumbsDown className="h-4 w-4" />
-                              </Button>
-                            </div>
-
-                            <div className="flex items-center space-x-1">
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => handleSave(creation.id)}
-                              >
-                                <Star className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => handleCopy(creation.example)}
-                              >
-                                <Copy className="h-4 w-4" />
-                              </Button>
-                              <ReportButton 
-                                contentType="creation" 
-                                contentId={creation.id} 
-                                size="sm" 
-                              />
-                            </div>
-                          </div>
-
-                          {/* Share & Track for LabPro users */}
-                          {isLabPro && user && (
-                            <div className="border-t border-border pt-3">
-                              <p className="text-xs text-muted-foreground mb-2">Share your creation:</p>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => {
-                                  setCreationToShare({
-                                    id: creation.id,
-                                    phrase: creation.phrase,
-                                    meaning: creation.meaning,
-                                    example: creation.example,
-                                    vibe: selectedVibes.join(', '),
-                                    created_at: new Date().toISOString(),
-                                    creation_type: 'ai'
-                                  } as ShareCreation);
-                                  setShareModalOpen(true);
-                                }}
-                                className="w-full"
-                              >
-                                <Sparkles className="h-4 w-4 mr-2" />
-                                Share & Track
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <SlangCard
+                      key={creation.id}
+                      creation={creation}
+                      showCuratedBadge={generationStatus && !generationStatus.isFromAI}
+                      showAIBadge={generationStatus && generationStatus.isFromAI}
+                      isLabPro={isLabPro}
+                      user={user}
+                      onVote={handleVote}
+                      onSave={handleSave}
+                      onCopy={handleCopy}
+                      onShare={(shareCreation) => {
+                        setCreationToShare({
+                          ...shareCreation,
+                          created_at: new Date().toISOString(),
+                          creation_type: 'ai'
+                        } as ShareCreation);
+                        setShareModalOpen(true);
+                      }}
+                      selectedVibes={selectedVibes}
+                    />
                   ))}
                 </div>
                 
