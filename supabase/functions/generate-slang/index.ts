@@ -758,7 +758,6 @@ serve(async (req) => {
           canShare: false,
         };
       }
-    }
     } else {
       // No authentication - default to safest policy
       serverAgePolicy = {
