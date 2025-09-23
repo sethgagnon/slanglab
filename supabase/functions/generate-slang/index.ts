@@ -7,50 +7,94 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// ==== ENHANCED DIAGNOSTICS: COMPREHENSIVE ERROR SOURCE IDENTIFICATION ====
+// ---------------- Diagnostics v2 (Response-aware) ----------------
 const HEADER_KEYS = [
   // OpenAI
   "x-request-id","openai-model",
   "x-ratelimit-remaining-requests","x-ratelimit-reset-requests",
   "x-ratelimit-remaining-tokens","x-ratelimit-reset-tokens",
   "retry-after",
-  // Supabase/Cloudflare
+  // Supabase/Cloudflare/Deno
   "sb-request-id","sb-project-ref","x-sb-edge-region",
   "cf-ray","server","x-served-by","x-deno-execution-id"
 ];
 
+function isResponseLike(x: any): x is Response {
+  return !!x && typeof x === "object"
+    && "headers" in x && typeof (x as any).headers?.get === "function"
+    && typeof (x as any).text === "function"
+    && ("ok" in x);
+}
+
 function pickHeaders(h: Headers | undefined | null) {
   if (!h?.get) return {};
-  const out: Record<string,string> = {};
-  for (const k of HEADER_KEYS) { const v = h.get(k); if (v) out[k] = v; }
+  const out: Record<string, string> = {};
+  for (const k of HEADER_KEYS) {
+    const v = h.get(k);
+    if (v) out[k] = v;
+  }
   return out;
 }
 
-async function safeResponseText(resp: Response | undefined | null) {
+async function readBodySafe(resp: Response | undefined | null) {
   try {
     if (!resp?.clone) return undefined;
     const txt = await resp.clone().text();
-    return txt && txt.length ? txt.slice(0,4000) : undefined;
-  } catch { return undefined; }
+    return txt && txt.length ? txt.slice(0, 4000) : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
-async function buildDiag(e: any, source:"openai"|"supabase"|"proxy"|"unknown", statusFallback=429) {
-  const status  = e?.status ?? e?.response?.status ?? statusFallback;
-  const headers = pickHeaders(e?.response?.headers);
-  const body    = await safeResponseText(e?.response);
-  const detail  = typeof e?.message==="string" ? e.message : String(e);
-  return { status, error:(e?.error??"upstream_error"), detail, diag:{source,status,headers,body} };
+// Normalize any thrown error into { status, headers, body, message }
+async function normalizeErr(e: any) {
+  // Case A: error itself is a Response
+  if (isResponseLike(e)) {
+    return {
+      status: e.status ?? 500,
+      headers: pickHeaders(e.headers),
+      body: await readBodySafe(e),
+      message: `Response ${e.status}`
+    };
+  }
+  // Case B: error.response is a Response
+  if (isResponseLike(e?.response)) {
+    return {
+      status: e.response.status ?? 500,
+      headers: pickHeaders(e.response.headers),
+      body: await readBodySafe(e.response),
+      message: typeof e?.message === "string" ? e.message : `Response ${e.response.status}`
+    };
+  }
+  // Case C: plain Error / unknown
+  return {
+    status: Number(e?.status ?? 429) || 429,
+    headers: {},
+    body: undefined,
+    message: typeof e?.message === "string" ? e.message : String(e)
+  };
 }
 
-async function diagResponse(e:any, source:"openai"|"supabase"|"proxy"|"unknown", statusFallback=429) {
-  const payload = await buildDiag(e,source,statusFallback);
+async function buildDiag(e: any, source: "openai"|"supabase"|"proxy"|"unknown") {
+  const norm = await normalizeErr(e);
+  return {
+    status: norm.status,
+    error: (e?.error ?? "upstream_error"),
+    detail: norm.message,
+    diag: { source, status: norm.status, headers: norm.headers, body: norm.body }
+  };
+}
+
+async function diagResponse(e: any, source: "openai"|"supabase"|"proxy"|"unknown") {
+  const payload = await buildDiag(e, source);
   const reqId = payload.diag.headers["sb-request-id"] || payload.diag.headers["x-request-id"] || "";
   console.error("[generate-slang diag]", reqId, JSON.stringify(payload));
   return new Response(JSON.stringify(payload), {
     status: payload.status,
-    headers: { "Content-Type":"application/json","Access-Control-Allow-Origin":"*" }
+    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
   });
 }
+// ---------------- End Diagnostics v2 ----------------
 
 // ==== PHASE 1: INFLIGHT TRACKING & SINGLE-FLIGHT PROTECTION ====
 const inflight = new Map<string, { promise: Promise<any>, started: number }>();
@@ -412,7 +456,10 @@ async function moderateInput(text: string): Promise<{ flagged: boolean; categori
       });
 
       if (!res.ok) {
-        throw new Error(`Moderation API error: ${res.status}`);
+        const err: any = new Error(`Moderation API error: ${res.status}`);
+        err.response = res;
+        err.status = res.status;
+        throw err;
       }
 
       return res;
