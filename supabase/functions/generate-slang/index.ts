@@ -96,31 +96,67 @@ async function diagResponse(e: any, source: "openai"|"supabase"|"proxy"|"unknown
 }
 // ---------------- End Diagnostics v2 ----------------
 
-type GenBody = { prompt?: unknown; vibe?: unknown; ageBand?: unknown };
+type AnyDict = Record<string, unknown>;
 
-async function readJsonSafe(req: Request): Promise<Record<string, unknown>> {
+async function readJsonSafe(req: Request): Promise<AnyDict> {
   try {
     const j = await req.json();
-    return (j && typeof j === "object") ? j as Record<string, unknown> : {};
-  } catch {
-    return {};
-  }
+    return (j && typeof j === "object") ? j as AnyDict : {};
+  } catch { return {}; }
 }
 
-function asString(x: unknown): string | undefined {
-  if (typeof x === "string") return x;
+const isString = (x: unknown): x is string => typeof x === "string";
+const isBool   = (x: unknown): x is boolean => typeof x === "boolean";
+const isNum    = (x: unknown): x is number  => typeof x === "number" && Number.isFinite(x);
+const isStrArr = (x: unknown): x is string[] => Array.isArray(x) && x.every(isString);
+const nonEmpty = (s: unknown): s is string => isString(s) && s.trim().length > 0;
+
+function aliasString(obj: AnyDict, keys: string[]): string | undefined {
+  for (const k of keys) {
+    const v = obj[k];
+    if (nonEmpty(v)) return String(v);
+  }
   return undefined;
 }
 
-function nonEmpty(s: unknown): s is string {
-  return typeof s === "string" && s.trim().length > 0;
+function clamp01(n: unknown, def = 0.7): number {
+  if (!isNum(n)) return def;
+  return Math.max(0, Math.min(1, n));
 }
 
-function buildUserMsg(parts: Array<string | undefined>): string {
-  // Always operate on an array literal; never call .filter on a maybe-undefined value
-  return parts
-    .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
-    .join(" | ");
+function buildPromptFromShape(input: {
+  prompt?: string;
+  vibe?: string;
+  vibeTags?: string[];
+  context?: string;
+  format?: string;
+  ageBand?: string;
+  schoolSafe?: boolean;
+}): { userMsg: string; vibeOut?: string } {
+  // If explicit prompt provided, honor it (back-compat)
+  if (nonEmpty(input.prompt)) {
+    const parts = [input.vibe, input.ageBand, input.prompt].filter(nonEmpty);
+    return { userMsg: parts.join(" | "), vibeOut: input.vibe };
+  }
+  // Otherwise construct from new shape
+  const vibeStr = isStrArr(input.vibeTags) && input.vibeTags.length
+    ? input.vibeTags.join(", ")
+    : (nonEmpty(input.vibe) ? input.vibe : undefined);
+
+  const fmt = nonEmpty(input.format) ? input.format : "phrase";
+  const ctx = nonEmpty(input.context) ? input.context : undefined;
+  const age = nonEmpty(input.ageBand) ? input.ageBand : undefined;
+
+  // Build a concise, deterministic instruction for the model
+  const parts: string[] = [];
+  parts.push(`Format: ${fmt}`);
+  if (ctx) parts.push(`Context: ${ctx}`);
+  if (vibeStr) parts.push(`Vibe: ${vibeStr}`);
+  if (age) parts.push(`Audience: ${age}`);
+  // Add the ask:
+  parts.push("Task: generate one slang candidate.");
+
+  return { userMsg: parts.join(" | "), vibeOut: vibeStr };
 }
 
 // ==== PHASE 1: INFLIGHT TRACKING & SINGLE-FLIGHT PROTECTION ====
@@ -777,24 +813,43 @@ serve(async (req) => {
   }
 
   try {
-    // Read and validate input
     const raw = await readJsonSafe(req);
-    const body = raw as GenBody;
-    const prompt = asString(body.prompt);
-    const vibe = asString(body.vibe);
-    const ageBand = asString(body.ageBand);
+    // minimal debug: log only keys, never values
+    try { console.log("[generate-slang] keys:", Object.keys(raw)); } catch {}
 
-    // Validate required field(s) without changing UI contract
-    if (!nonEmpty(prompt)) {
-      const payload = { status: 400, error: "bad_request", detail: "Missing or empty 'prompt'." };
+    // Back-compat aliases
+    const promptAlias  = aliasString(raw, ["prompt","text","phrase","query","message","input","content"]);
+    const vibeAlias    = aliasString(raw, ["vibe","mood","style"]);
+    const ageBandAlias = aliasString(raw, ["ageBand","age","audience"]);
+
+    // New shape fields
+    const vibeTags = isStrArr(raw["vibeTags"]) ? (raw["vibeTags"] as string[]) : undefined;
+    const context  = aliasString(raw, ["context","topic","theme"]);
+    const format   = aliasString(raw, ["format","type","kind"]);
+    const schoolSafe = isBool(raw["schoolSafe"]) ? (raw["schoolSafe"] as boolean) : true;
+    const creativity = clamp01(raw["creativity"], 0.7);  // default 0.7
+
+    const { userMsg, vibeOut } = buildPromptFromShape({
+      prompt: promptAlias,
+      vibe: vibeAlias,
+      vibeTags,
+      context,
+      format,
+      ageBand: ageBandAlias,
+      schoolSafe
+    });
+
+    // Fail fast only if we have absolutely nothing to ask
+    if (!nonEmpty(userMsg)) {
+      const payload = { status: 400, error: "bad_request", detail: "Insufficient input to generate slang." };
       return new Response(JSON.stringify(payload), {
         status: 400,
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
       });
     }
 
-    // Build the user message safely. This will never throw.
-    const userMsg = buildUserMsg([vibe, ageBand, prompt]);
+    // Map creativity -> temperature
+    const temperature = creativity; // 0..1 already clamped
 
     // Input moderation
     const inputText = userMsg;
@@ -815,7 +870,7 @@ serve(async (req) => {
 
     // (1) DERIVE IDEMPOTENCY + USER KEY
     const baseIdempotencyKey = req.headers.get('X-Idempotency-Key') || 
-      generateIdempotencyKey({ vibeTags: [prompt], context: vibe || 'generic', format: ageBand || 'word' });
+      generateIdempotencyKey({ vibeTags: vibeTags || [vibeOut || 'generic'], context: context || 'generic', format: format || 'word' });
 
     let userId: string | null = null;
     let userPlan = 'free';
@@ -950,8 +1005,8 @@ serve(async (req) => {
         // SERVER-SIDE POLICY ENFORCEMENT
         const enforcedParams = {
           ageBand: serverAgePolicy.ageBand,
-          creativity: Math.min(Math.max(clientCreativity ?? 0.7, 0.1), serverAgePolicy.maxCreativity),
-          schoolSafe: serverAgePolicy.requireSchoolSafe ? true : (clientSchoolSafe ?? true),
+          creativity: Math.min(Math.max(creativity, 0.1), serverAgePolicy.maxCreativity),
+          schoolSafe: serverAgePolicy.requireSchoolSafe ? true : schoolSafe,
           format: serverAgePolicy.allowedFormats.includes(format ?? 'word') ? 
             format : serverAgePolicy.allowedFormats[0],
           context: serverAgePolicy.allowedContexts.includes(context ?? 'generic') ? 
@@ -961,9 +1016,10 @@ serve(async (req) => {
         console.log('Enforced parameters:', enforcedParams);
 
         // (5) CHECK 90S CACHE
+        const vibeTagsForCache = vibeTags || [vibeOut || 'generic'];
         const recentCacheKey = generateCacheKey({
-          prompt: vibeTags.join(','),
-          vibe: vibeTags[0],
+          prompt: vibeTagsForCache.join(','),
+          vibe: vibeTagsForCache[0],
           ageBand: enforcedParams.ageBand,
           model: 'gpt-5-mini-2025-08-07',
           context: enforcedParams.context,
@@ -998,7 +1054,7 @@ serve(async (req) => {
         }
 
         // Legacy cache fallback
-        const cacheKey = vibeTags.join(',');
+        const cacheKey = vibeTagsForCache.join(',');
         const { shouldUseCache, cacheEntry } = await checkCacheStrategy(userId, cacheKey, userPlan, userRole);
         
         if (shouldUseCache && cacheEntry) {
@@ -1028,7 +1084,7 @@ serve(async (req) => {
 
         // (6) CALL OPENAI VIA WITHBACKOFF
         console.log('Generating fresh AI content');
-        const result = await generateSlang(vibeTags, context, format, enforcedParams, supabase, recentCacheKey);
+        const result = await generateSlang(vibeTagsForCache, enforcedParams.context, enforcedParams.format, enforcedParams, supabase, recentCacheKey);
         
         attempts = result.attempts || 1;
 
