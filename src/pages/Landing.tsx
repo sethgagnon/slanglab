@@ -439,12 +439,12 @@ const Landing = () => {
         {/* Footer */}
         <footer className="border-t border-border py-8">
           <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-            <p>&copy; 2025 SlangLab. Decode today, create tomorrow.</p>
+            <p>&copy; 2025 SlangLab. Making slang accessible to everyone.</p>
             {/* Alternative taglines - uncomment to use:
                 © 2025 SlangLab. Where language evolution meets evidence.
                 © 2025 SlangLab. Bridging generations through language.
                 © 2025 SlangLab. Your trusted slang companion.
-                © 2025 SlangLab. Making slang accessible to everyone.
+                © 2025 SlangLab. Decode today, create tomorrow.
                 © 2025 SlangLab. Decode the culture, create the future.
                 © 2025 SlangLab. Evidence-based language exploration.
             */}
