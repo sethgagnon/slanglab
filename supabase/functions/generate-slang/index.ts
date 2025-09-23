@@ -735,12 +735,12 @@ async function generateSlang(
   if (!openaiApiKey) {
     console.error('OpenAI API key not configured');
     // Try cache fallback first
-    const fallbackFromCache = await getFallbackFromCache(vibe);
+    const fallbackFromCache = await getFallbackFromCache(vibeTags.join(','));
     if (fallbackFromCache) {
       return { creations: fallbackFromCache, isFromAI: false, error: 'OpenAI API key not configured - using cached content' };
     }
     return { 
-      creations: getFallbackCreations(vibe), 
+      creations: getFallbackCreations(vibeTags[0]), 
       isFromAI: false,
       error: 'OpenAI API key not configured' 
     };
@@ -822,7 +822,7 @@ Focus on creating fresh, authentic slang that captures the combined "${vibePromp
         status: response.status,
         error_message: `OpenAI API error: ${response.status} - ${errorText}`,
         processing_time_ms: apiCallEnd - apiCallStart,
-        request_data: { model: 'gpt-5-mini-2025-08-07', vibe, ageBand: params.ageBand },
+        request_data: { model: 'gpt-5-mini-2025-08-07', vibe: vibeTags.join(','), ageBand: params.ageBand },
         estimated_cost: 0.01
       });
       
