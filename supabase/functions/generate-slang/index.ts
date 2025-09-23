@@ -7,6 +7,86 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Idempotency and Single-Flight Protection Infrastructure
+const inflight = new Map<string, { promise: Promise<any>, started: number }>();
+const locks = new Map<string, { promise: Promise<void>, started: number }>();
+
+// Prune old entries to prevent memory leaks
+function pruneOldEntries() {
+  const now = Date.now();
+  const maxAge = 5 * 60 * 1000; // 5 minutes
+
+  for (const [key, entry] of inflight.entries()) {
+    if (now - entry.started > maxAge) {
+      inflight.delete(key);
+    }
+  }
+
+  for (const [key, entry] of locks.entries()) {
+    if (now - entry.started > maxAge) {
+      locks.delete(key);
+    }
+  }
+}
+
+// Generate stable hash from request parameters
+function generateIdempotencyKey(params: { vibeTags: string[], context: string, format: string, ageBand?: string }): string {
+  const normalized = {
+    vibeTags: [...params.vibeTags].sort(),
+    context: params.context,
+    format: params.format,
+    ageBand: params.ageBand || 'unknown'
+  };
+  
+  const str = JSON.stringify(normalized);
+  // Simple hash implementation for Deno
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash).toString(36);
+}
+
+// Create idempotency key combining user and request
+function createIdempotencyKey(userKey: string, baseKey: string): string {
+  return `${userKey}::${baseKey}`;
+}
+
+// Single-flight protection with timeout
+async function withSingleFlight<T>(userKey: string, fn: () => Promise<T>, timeoutMs = 45000): Promise<T> {
+  const prev = locks.get(userKey)?.promise ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>(res => (release = res));
+  locks.set(userKey, { promise: prev.then(() => current), started: Date.now() });
+  
+  try {
+    return await Promise.race([
+      fn(),
+      new Promise<T>((_, rej) => setTimeout(() => rej(new Error("single-flight timeout")), timeoutMs))
+    ]);
+  } finally {
+    release();
+    if (locks.get(userKey)?.promise === current) {
+      locks.delete(userKey);
+    }
+  }
+}
+
+// Extract user key for identification
+function getUserKey(req: Request, userId?: string): string {
+  if (userId) return userId;
+  
+  // Try to get real IP from various headers
+  const forwarded = req.headers.get('x-forwarded-for');
+  const realIp = req.headers.get('x-real-ip');
+  const cfIp = req.headers.get('cf-connecting-ip');
+  
+  const clientIp = forwarded?.split(',')[0].trim() || realIp || cfIp || 'unknown';
+  return `ip:${clientIp}`;
+}
+
 // Robust retry function with exponential backoff + jitter
 async function withBackoff<T>(fn: () => Promise<T>, max = 5): Promise<T> {
   for (let attempt = 0; ; attempt++) {
@@ -359,6 +439,9 @@ serve(async (req) => {
   // Store request context for API logging
   globalThis.currentRequest = req;
 
+  // Prune old entries on each request to prevent memory leaks
+  pruneOldEntries();
+
   try {
     // Enhanced input validation with age-aware parameters  
     const body = await req.json();
@@ -370,6 +453,15 @@ serve(async (req) => {
       schoolSafe: clientSchoolSafe, 
       creativity: clientCreativity
     } = body;
+
+    // Extract idempotency key from header or generate from request
+    const headerIdempotencyKey = req.headers.get('X-Idempotency-Key');
+    const baseIdempotencyKey = headerIdempotencyKey || generateIdempotencyKey({ 
+      vibeTags, 
+      context, 
+      format, 
+      ageBand: clientAgeBand 
+    });
     
     if (!vibeTags || !Array.isArray(vibeTags) || vibeTags.length === 0) {
       return new Response(JSON.stringify({ error: 'Vibe tags are required and must be a non-empty array' }), {
@@ -436,13 +528,33 @@ serve(async (req) => {
       
       if (user) {
         userId = user.id;
+
+    // Extract user key and create final idempotency key
+    const userKey = getUserKey(req, userId);
+    const idempotencyKey = createIdempotencyKey(userKey, baseIdempotencyKey);
+
+    // Check if this exact request is already in-flight
+    if (inflight.has(idempotencyKey)) {
+      console.log('Returning in-flight result for idempotency key:', idempotencyKey);
+      return await inflight.get(idempotencyKey)!.promise;
+    }
+
+    // Create the main generation promise with single-flight protection
+    const generationPromise = (async () => {
+      return await withSingleFlight(userKey, async () => {
+        // Continue with existing authentication and generation logic
+        const supabase = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        );
         
-        // Get user profile info
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('plan, role')
-          .eq('user_id', userId)
-          .single();
+        if (userId) {
+          // Get user profile info
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('plan, role')
+            .eq('user_id', userId)
+            .single();
 
         userPlan = profile?.plan || 'free';
         userRole = profile?.role || 'member';
@@ -602,9 +714,61 @@ serve(async (req) => {
       canRetry: !result.isFromAI && result.error?.includes('rate limit')
     };
 
-    return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+        return new Response(JSON.stringify(response), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+        } else {
+          // Handle anonymous/unauthenticated users with safe defaults
+          serverAgePolicy = {
+            ageBand: '11-13',
+            requireSchoolSafe: true,
+            maxCreativity: 0.6,
+            allowedFormats: ['word', 'short_phrase'],
+            allowedContexts: ['homework', 'food', 'sports', 'gaming', 'music', 'generic'],
+            canShare: false
+          };
+
+          const enforcedParams = {
+            ageBand: serverAgePolicy.ageBand,
+            creativity: Math.min(Math.max(clientCreativity ?? 0.7, 0.1), serverAgePolicy.maxCreativity),
+            schoolSafe: serverAgePolicy.requireSchoolSafe ? true : (clientSchoolSafe ?? true),
+            format: serverAgePolicy.allowedFormats.includes(format ?? 'word') ? 
+              format : serverAgePolicy.allowedFormats[0],
+            context: serverAgePolicy.allowedContexts.includes(context ?? 'generic') ? 
+              context : 'generic'
+          };
+
+          console.log('Anonymous user enforced parameters:', enforcedParams);
+
+          // Generate content with fallback for anonymous users
+          const result = await generateSlang(vibeTags, context, format, enforcedParams);
+          const moderatedCreations = await moderateCreations(result.creations);
+
+          const response = {
+            creations: moderatedCreations,
+            isFromAI: result.isFromAI,
+            message: result.isFromAI 
+              ? 'Fresh AI-generated slang created just for you!'
+              : result.error || 'Using creative fallback content - try again in a moment for fresh AI results!',
+            canRetry: !result.isFromAI && result.error?.includes('rate limit')
+          };
+
+          return new Response(JSON.stringify(response), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      });
+    })();
+
+    // Store the promise in inflight map for idempotency  
+    inflight.set(idempotencyKey, { promise: generationPromise, started: Date.now() });
+
+    try {
+      return await generationPromise;
+    } finally {
+      // Always cleanup inflight entry
+      inflight.delete(idempotencyKey);
+    }
 
   } catch (error) {
     console.error('Error in generate-slang function:', error);
