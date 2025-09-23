@@ -96,20 +96,20 @@ async function diagResponse(e: any, source: "openai"|"supabase"|"proxy"|"unknown
 }
 // ---------------- End Diagnostics v2 ----------------
 
+// ---- helpers: parsing, mapping, errors ----
+type Creation = { text: string };
 type AnyDict = Record<string, unknown>;
 
-async function readJsonSafe(req: Request): Promise<AnyDict> {
-  try {
-    const j = await req.json();
-    return (j && typeof j === "object") ? j as AnyDict : {};
-  } catch { return {}; }
-}
+const isString  = (x: unknown): x is string  => typeof x === "string";
+const isBool    = (x: unknown): x is boolean => typeof x === "boolean";
+const isNum     = (x: unknown): x is number  => typeof x === "number" && Number.isFinite(x);
+const isStrArr  = (x: unknown): x is string[] => Array.isArray(x) && x.every(isString);
+const nonEmpty  = (s: unknown): s is string => isString(s) && s.trim().length > 0;
 
-const isString = (x: unknown): x is string => typeof x === "string";
-const isBool   = (x: unknown): x is boolean => typeof x === "boolean";
-const isNum    = (x: unknown): x is number  => typeof x === "number" && Number.isFinite(x);
-const isStrArr = (x: unknown): x is string[] => Array.isArray(x) && x.every(isString);
-const nonEmpty = (s: unknown): s is string => isString(s) && s.trim().length > 0;
+async function readJsonSafe(req: Request): Promise<AnyDict> {
+  try { const j = await req.json(); return j && typeof j === "object" ? j as AnyDict : {}; }
+  catch { return {}; }
+}
 
 function aliasString(obj: AnyDict, keys: string[]): string | undefined {
   for (const k of keys) {
@@ -124,40 +124,56 @@ function clamp01(n: unknown, def = 0.7): number {
   return Math.max(0, Math.min(1, n));
 }
 
-function buildPromptFromShape(input: {
+function buildUserMsg(input: {
   prompt?: string;
   vibe?: string;
   vibeTags?: string[];
   context?: string;
   format?: string;
   ageBand?: string;
-  schoolSafe?: boolean;
-}): { userMsg: string; vibeOut?: string } {
-  // If explicit prompt provided, honor it (back-compat)
+}): string {
+  // Legacy explicit prompt wins
   if (nonEmpty(input.prompt)) {
     const parts = [input.vibe, input.ageBand, input.prompt].filter(nonEmpty);
-    return { userMsg: parts.join(" | "), vibeOut: input.vibe };
+    return parts.join(" | ");
   }
-  // Otherwise construct from new shape
-  const vibeStr = isStrArr(input.vibeTags) && input.vibeTags.length
-    ? input.vibeTags.join(", ")
-    : (nonEmpty(input.vibe) ? input.vibe : undefined);
-
-  const fmt = nonEmpty(input.format) ? input.format : "phrase";
-  const ctx = nonEmpty(input.context) ? input.context : undefined;
-  const age = nonEmpty(input.ageBand) ? input.ageBand : undefined;
-
-  // Build a concise, deterministic instruction for the model
+  // New structured shape
+  const vibeStr = input.vibeTags?.length ? input.vibeTags.join(", ") : (input.vibe ?? undefined);
+  const fmt = input.format && input.format.trim() ? input.format : "phrase";
   const parts: string[] = [];
   parts.push(`Format: ${fmt}`);
-  if (ctx) parts.push(`Context: ${ctx}`);
+  if (input.context) parts.push(`Context: ${input.context}`);
   if (vibeStr) parts.push(`Vibe: ${vibeStr}`);
-  if (age) parts.push(`Audience: ${age}`);
-  // Add the ask:
+  if (input.ageBand) parts.push(`Audience: ${input.ageBand}`);
   parts.push("Task: generate one slang candidate.");
-
-  return { userMsg: parts.join(" | "), vibeOut: vibeStr };
+  return parts.join(" | ");
 }
+
+function mapOpenAIToCreations(data: any): Creation[] {
+  const msg = data?.choices?.[0]?.message?.content ?? data?.choices?.[0]?.text ?? "";
+  const text = isString(msg) ? msg.trim() : "";
+  return text ? [{ text }] : [];
+}
+
+function errJson(status: number, error: string, detail: string, reason: string, extra: Record<string, unknown> = {}) {
+  const payload = { status, error, detail, reason_code: reason, ...extra };
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+  });
+}
+
+async function shortPace(resp: Response) {
+  const reqRemain = Number(resp.headers.get("x-ratelimit-remaining-requests") ?? 0);
+  const reqResetS = Number(resp.headers.get("x-ratelimit-reset-requests") ?? 0);
+  const tokRemain = Number(resp.headers.get("x-ratelimit-remaining-tokens") ?? 0);
+  const tokResetS = Number(resp.headers.get("x-ratelimit-reset-tokens") ?? 0);
+  const resetMs = Math.max(reqResetS, tokResetS) * 1000;
+  if ((reqRemain <= 1 || tokRemain <= 1) && resetMs > 0) {
+    await new Promise(r => setTimeout(r, Math.min(15000, resetMs)));
+  }
+}
+// ---- end helpers ----
 
 // ==== PHASE 1: INFLIGHT TRACKING & SINGLE-FLIGHT PROTECTION ====
 const inflight = new Map<string, { promise: Promise<any>, started: number }>();
@@ -652,33 +668,6 @@ Return valid JSON matching the schema exactly.`;
   }
 }
 
-function getFallbackCreations(vibe: string): any[] {
-  const fallbacks = {
-    'praise': [
-      {
-        phrase: "stellar work",
-        meaning: "Outstanding performance or achievement",
-        example: "That presentation was stellar work!"
-      }
-    ],
-    'hype': [
-      {
-        phrase: "absolute fire",
-        meaning: "Something extremely good or impressive",
-        example: "Your new project is absolute fire!"
-      }
-    ],
-    'food': [
-      {
-        phrase: "chef's kiss",
-        meaning: "Perfect or excellent",
-        example: "That meal was chef's kiss!"
-      }
-    ]
-  };
-
-  return fallbacks[vibe] || fallbacks['praise'];
-}
 
 async function moderateCreations(creations: any[]): Promise<any[]> {
   if (!Array.isArray(creations)) return [];
@@ -814,42 +803,25 @@ serve(async (req) => {
 
   try {
     const raw = await readJsonSafe(req);
-    // minimal debug: log only keys, never values
-    try { console.log("[generate-slang] keys:", Object.keys(raw)); } catch {}
-
-    // Back-compat aliases
-    const promptAlias  = aliasString(raw, ["prompt","text","phrase","query","message","input","content"]);
-    const vibeAlias    = aliasString(raw, ["vibe","mood","style"]);
-    const ageBandAlias = aliasString(raw, ["ageBand","age","audience"]);
-
-    // New shape fields
-    const vibeTags = isStrArr(raw["vibeTags"]) ? (raw["vibeTags"] as string[]) : undefined;
+    // legacy aliases
+    const prompt  = aliasString(raw, ["prompt","text","phrase","query","message","input","content"]);
+    const vibe    = aliasString(raw, ["vibe","mood","style"]);
+    const ageBand = aliasString(raw, ["ageBand","age","audience"]);
+    // new shape
+    const vibeTags = isStrArr(raw["vibeTags"]) ? raw["vibeTags"] as string[] : undefined;
     const context  = aliasString(raw, ["context","topic","theme"]);
-    const format   = aliasString(raw, ["format","type","kind"]);
+    const format   = aliasString(raw, ["format","type","kind"]) ?? "phrase";
     const schoolSafe = isBool(raw["schoolSafe"]) ? (raw["schoolSafe"] as boolean) : true;
-    const creativity = clamp01(raw["creativity"], 0.7);  // default 0.7
+    const creativity = clamp01(raw["creativity"], 0.7); // maps to temperature
 
-    const { userMsg, vibeOut } = buildPromptFromShape({
-      prompt: promptAlias,
-      vibe: vibeAlias,
-      vibeTags,
-      context,
-      format,
-      ageBand: ageBandAlias,
-      schoolSafe
-    });
-
-    // Fail fast only if we have absolutely nothing to ask
+    const userMsg = buildUserMsg({ prompt: prompt ?? undefined, vibe: vibe ?? undefined, vibeTags, context: context ?? undefined, format, ageBand: ageBand ?? undefined });
     if (!nonEmpty(userMsg)) {
-      const payload = { status: 400, error: "bad_request", detail: "Insufficient input to generate slang." };
-      return new Response(JSON.stringify(payload), {
-        status: 400,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
-      });
+      return errJson(400, "bad_request", "Insufficient input to generate slang.", "invalid_input");
     }
-
-    // Map creativity -> temperature
-    const temperature = creativity; // 0..1 already clamped
+    const temperature = creativity;
+    const systemSafe = schoolSafe
+      ? "Invent safe, PG-13, non-derogatory slang. Avoid slurs, hate, sexual content, or personal data. Be concise."
+      : "Invent slang. Be concise.";
 
     // Input moderation
     const inputText = userMsg;
@@ -1082,50 +1054,47 @@ serve(async (req) => {
           });
         }
 
-        // (6) CALL OPENAI VIA WITHBACKOFF
+        // (6) DIRECT OPENAI CALL
         console.log('Generating fresh AI content');
-        const result = await generateSlang(vibeTagsForCache, enforcedParams.context, enforcedParams.format, enforcedParams, supabase, recentCacheKey);
         
-        attempts = result.attempts || 1;
+        const apiKey = Deno.env.get("OPENAI_API_KEY");
+        if (!apiKey) return errJson(500, "config_error", "Missing OPENAI_API_KEY", "missing_key");
 
-        // (7) MODERATE GENERATED CONTENT
-        const moderatedCreations = await moderateCreations(Array.isArray(result.creations) ? result.creations : []);
-
-        // (8) SAVE TO CACHE
-        if (result.isFromAI && moderatedCreations.length > 0) {
-          await saveToCacheDatabase(cacheKey, moderatedCreations);
-        }
-
-        // (9) INSERT STRUCTURED LOG ROW
-        await logAICall(supabase, {
-          userId: userId || getUserKey(req),
-          clientIp: getUserKey(req, userId).startsWith('ip:') ? getUserKey(req, userId).substring(3) : undefined,
-          tokensIn: result.tokensIn,
-          tokensOut: result.tokensOut,
-          model: 'gpt-5-mini-2025-08-07',
-          attempts: attempts,
-          status: 200,
-          wasCached: wasCached,
-          wasCoalesced: wasCoalesced
+        const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: systemSafe },
+              { role: "user", content: userMsg }
+            ],
+            temperature,
+            max_tokens: 200
+          })
         });
 
-        // Save to database if user is authenticated
-        if (userId) {
-          await saveCreationsToDatabase(userId, cacheKey, moderatedCreations);
-          await updateGenerationLimits(userId);
+        if (!resp.ok) {
+          const body = await resp.text();
+          return errJson(resp.status, "upstream_error", body || `OpenAI ${resp.status}`, "openai_error", {
+            headers: {
+              "x-request-id": resp.headers.get("x-request-id") ?? undefined,
+              "x-ratelimit-remaining-requests": resp.headers.get("x-ratelimit-remaining-requests") ?? undefined,
+              "x-ratelimit-reset-requests": resp.headers.get("x-ratelimit-reset-requests") ?? undefined
+            }
+          });
         }
 
-        const response = {
-          creations: moderatedCreations,
-          isFromAI: result.isFromAI,
-          message: result.isFromAI 
-            ? 'Fresh AI-generated slang created just for you!'
-            : result.error || 'Using creative fallback content',
-          canRetry: !result.isFromAI && result.error?.includes('rate limit')
-        };
+        await shortPace(resp); // small, safe pause if near limits
+        const data = await resp.json();
+        const creations = mapOpenAIToCreations(data);
+        if (!creations.length) {
+          return errJson(502, "upstream_empty", "OpenAI returned no usable content.", "openai_empty", { model: data?.model });
+        }
 
-        return new Response(JSON.stringify(response), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify({ creations }), {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
         });
       });
     })();
