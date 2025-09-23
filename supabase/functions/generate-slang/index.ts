@@ -97,7 +97,12 @@ async function diagResponse(e: any, source: "openai"|"supabase"|"proxy"|"unknown
 // ---------------- End Diagnostics v2 ----------------
 
 // ---- helpers: parsing, mapping, errors ----
-type Creation = { text: string };
+type Creation = { 
+  phrase: string;
+  meaning: string;
+  example: string;
+  text: string;
+};
 type AnyDict = Record<string, unknown>;
 
 const isString  = (x: unknown): x is string  => typeof x === "string";
@@ -152,7 +157,74 @@ function buildUserMsg(input: {
 function mapOpenAIToCreations(data: any): Creation[] {
   const msg = data?.choices?.[0]?.message?.content ?? data?.choices?.[0]?.text ?? "";
   const text = isString(msg) ? msg.trim() : "";
-  return text ? [{ text }] : [];
+  
+  if (!text) return [];
+  
+  // Try to parse structured response
+  try {
+    // Look for JSON-like structure first
+    if (text.includes('{') && text.includes('}')) {
+      const jsonMatch = text.match(/\{[^}]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.phrase && parsed.meaning) {
+          return [{
+            phrase: parsed.phrase,
+            meaning: parsed.meaning,
+            example: parsed.example || `"${parsed.phrase}" in context`,
+            text: `${parsed.phrase}: ${parsed.meaning}`
+          }];
+        }
+      }
+    }
+    
+    // Parse common formats: "word: definition" or "word - definition"
+    const colonMatch = text.match(/^([^:]+):\s*(.+)$/);
+    if (colonMatch) {
+      const phrase = colonMatch[1].trim();
+      const meaning = colonMatch[2].trim();
+      return [{
+        phrase,
+        meaning,
+        example: `"${phrase}" in context`,
+        text: `${phrase}: ${meaning}`
+      }];
+    }
+    
+    const dashMatch = text.match(/^([^-]+)\s*-\s*(.+)$/);
+    if (dashMatch) {
+      const phrase = dashMatch[1].trim();
+      const meaning = dashMatch[2].trim();
+      return [{
+        phrase,
+        meaning,
+        example: `"${phrase}" in context`,
+        text: `${phrase}: ${meaning}`
+      }];
+    }
+    
+    // If it's just a single word/phrase, create basic structure
+    const words = text.split(/\s+/);
+    if (words.length <= 3) {
+      return [{
+        phrase: text,
+        meaning: "Generated slang term",
+        example: `"${text}" in context`,
+        text: text
+      }];
+    }
+    
+  } catch (e) {
+    console.warn('Failed to parse OpenAI response:', e);
+  }
+  
+  // Fallback: treat as phrase with basic meaning
+  return [{
+    phrase: text.split(/[:.]/)[0].trim(),
+    meaning: text.includes(':') ? text.split(':')[1].trim() : "Generated slang term",
+    example: `"${text.split(/[:.]/)[0].trim()}" in context`,
+    text: text
+  }];
 }
 
 function errJson(status: number, error: string, detail: string, reason: string, extra: Record<string, unknown> = {}) {
