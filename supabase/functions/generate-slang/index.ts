@@ -178,7 +178,28 @@ function mapOpenAIToCreations(data: any): Creation[] {
       }
     }
     
-    // Parse common formats: "word: definition" or "word - definition"
+    // Parse common formats: "word | definition", "word: definition" or "word - definition"
+    // Handle pipe delimiter first (most common OpenAI format)
+    const pipeMatch = text.match(/^([^|]+)\|\s*(.+)$/);
+    if (pipeMatch) {
+      const phrase = pipeMatch[1].trim();
+      const meaning = pipeMatch[2].trim();
+      
+      // Validate the phrase is legitimate slang, not prompt echo
+      if (!isValidSlangPhrase(phrase)) {
+        console.log(`Invalid slang phrase detected in pipe format: ${phrase}`);
+        throw new Error('Invalid response from AI - contains prompt echo');
+      }
+      
+      console.log('Using fallback example generation for pipe format');
+      return [{
+        phrase,
+        meaning,
+        example: generateNaturalExample(phrase),
+        text: `${phrase}: ${meaning}`
+      }];
+    }
+    
     const colonMatch = text.match(/^([^:]+):\s*(.+)$/);
     if (colonMatch) {
       const phrase = colonMatch[1].trim();
