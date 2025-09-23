@@ -189,8 +189,8 @@ const SlangLab = () => {
               
               if (age >= 11 && age <= 13) setAgeBand('11-13');
               else if (age >= 14 && age <= 17) setAgeBand('14-17');
-              else if (age >= 18 && age <= 22) setAgeBand('18-22');
-              else setAgeBand(age < 11 ? '11-13' : '18-22');
+              else if (age >= 18) setAgeBand('18+');
+              else setAgeBand('11-13');
             }
           }
         }
@@ -243,8 +243,8 @@ const SlangLab = () => {
       
       if (age >= 11 && age <= 13) setAgeBand('11-13');
       else if (age >= 14 && age <= 17) setAgeBand('14-17');
-      else if (age >= 18 && age <= 22) setAgeBand('18-22');
-      else setAgeBand(age < 11 ? '11-13' : '18-22');
+      else if (age >= 18) setAgeBand('18+');
+      else setAgeBand('11-13');
     }
     
     if (isMinor) {
@@ -629,7 +629,7 @@ const SlangLab = () => {
                   <div>
                     <label className="text-sm font-medium">School-Safe Mode</label>
                     <p className="text-xs text-muted-foreground">
-                      {ageBand === '18-22' 
+                      {ageBand === '18+' 
                         ? 'Optional - content suitable for academic/work environments' 
                         : 'Required for your age group'
                       }
@@ -642,7 +642,7 @@ const SlangLab = () => {
                       id="school-safe"
                       checked={schoolSafe}
                       onChange={(e) => setSchoolSafe(e.target.checked)}
-                      disabled={ageBand !== '18-22'}
+                      disabled={ageBand !== '18+'}
                       className="rounded border-border"
                     />
                     <label htmlFor="school-safe" className="text-sm">

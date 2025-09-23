@@ -1,6 +1,6 @@
 // Phase 1: Safety Backbone + Age Controls - Type Definitions
 
-export type AgeBand = '11-13' | '14-17' | '18-22';
+export type AgeBand = '11-13' | '14-17' | '18+';
 
 export type ContentFormat = 'word' | 'short_phrase' | 'emoji_word_mash';
 
@@ -220,5 +220,5 @@ export const CONTENT_BLOCKLIST_REGEX = [
 export const AGE_RESTRICTED_VIBES: Record<AgeBand, string[]> = {
   '11-13': ['gentle-roast'], // Remove potentially confusing vibes for youngest group
   '14-17': [], // Allow all vibes
-  '18-22': []  // Allow all vibes
+  '18+': []  // Allow all vibes
 };

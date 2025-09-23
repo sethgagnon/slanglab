@@ -26,9 +26,9 @@ export function getAgePolicyForBand(ageBand: AgeBand): AgePolicy {
         allowedContexts: ['homework', 'food', 'sports', 'gaming', 'music', 'fashion', 'generic', 'inside-joke'],
         canShare: true
       };
-    case '18-22':
+    case '18+':
       return {
-        ageBand: '18-22',
+        ageBand: '18+',
         requireSchoolSafe: false,
         maxCreativity: 0.8,
         allowedFormats: ['word', 'short_phrase', 'emoji_word_mash'],
@@ -140,9 +140,9 @@ export function validateRequestForAge(
     errors.push(`Context "${request.context}" not allowed for age group`);
   }
   
-  // Check school-safe requirement - Phase 3: Only 18-22 can disable school-safe
-  if (request.schoolSafe === false && ageBand !== '18-22') {
-    errors.push('School-safe mode can only be disabled for ages 18-22');
+  // Check school-safe requirement - Phase 3: Only 18+ can disable school-safe
+  if (request.schoolSafe === false && ageBand !== '18+') {
+    errors.push('School-safe mode can only be disabled for ages 18+');
   }
   
   return {
@@ -160,8 +160,8 @@ export function getAgeBandDisplay(ageBand: AgeBand): string {
       return '11-13 years (Enhanced Safety)';
     case '14-17':
       return '14-17 years (School-Safe Required)';
-    case '18-22':
-      return '18-22 years (Full Access)';
+    case '18+':
+      return '18+ years (Full Access)';
     default:
       return 'Unknown Age Range';
   }
@@ -182,8 +182,8 @@ export function calculateAgeBand(birthDate: string): AgeBand {
   
   if (age >= 11 && age <= 13) return '11-13';
   if (age >= 14 && age <= 17) return '14-17';
-  if (age >= 18 && age <= 22) return '18-22';
+  if (age >= 18) return '18+';
   
   // Default to safest for out-of-range ages
-  return age < 11 ? '11-13' : '18-22';
+  return '11-13';
 }

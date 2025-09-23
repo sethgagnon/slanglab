@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 // Phase 1: Safety Backbone + Age Controls - Enhanced Content Policy
-type AgeBand = '11-13' | '14-17' | '18-22';
+type AgeBand = '11-13' | '14-17' | '18+';
 
 interface AgePolicy {
   ageBand: AgeBand;
@@ -214,7 +214,7 @@ ${baseRules}
 - School-safe language required
 - Focus on interests like music, sports, fashion, gaming`,
     
-    '18-22': schoolSafe ? `
+    '18+': schoolSafe ? `
 ${baseRules}
 - COLLEGE/WORKPLACE SAFE: Professional yet creative language
 - Can reference adult interests but keep family-friendly
