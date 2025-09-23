@@ -12,6 +12,20 @@ import {
 } from 'lucide-react';
 import { ReportButton } from '@/components/ReportButton';
 
+// Helper function to format examples with consistent quote handling
+const formatExample = (example: string): string => {
+  if (!example) return '';
+  
+  // Check if example already has quotes at the beginning and end
+  const trimmed = example.trim();
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return trimmed;
+  }
+  
+  // Add quotes if they don't exist
+  return `"${trimmed}"`;
+};
+
 interface SlangCardProps {
   creation: {
     id: string;
@@ -91,7 +105,7 @@ export const SlangCard: React.FC<SlangCardProps> = ({
         <div>
           <p className="text-sm font-medium text-muted-foreground mb-1">Example</p>
           <p className="text-sm text-foreground italic leading-relaxed">
-            "{creation.example}"
+            {formatExample(creation.example)}
           </p>
         </div>
 

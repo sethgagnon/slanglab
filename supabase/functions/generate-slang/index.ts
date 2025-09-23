@@ -171,7 +171,7 @@ function mapOpenAIToCreations(data: any): Creation[] {
           return [{
             phrase: parsed.phrase,
             meaning: parsed.meaning,
-            example: parsed.example || `"${parsed.phrase}" in context`,
+            example: parsed.example || generateNaturalExample(parsed.phrase),
             text: `${parsed.phrase}: ${parsed.meaning}`
           }];
         }
@@ -183,10 +183,11 @@ function mapOpenAIToCreations(data: any): Creation[] {
     if (colonMatch) {
       const phrase = colonMatch[1].trim();
       const meaning = colonMatch[2].trim();
+      console.log('Using fallback example generation for colon format');
       return [{
         phrase,
         meaning,
-        example: `"${phrase}" in context`,
+        example: generateNaturalExample(phrase),
         text: `${phrase}: ${meaning}`
       }];
     }
@@ -195,10 +196,11 @@ function mapOpenAIToCreations(data: any): Creation[] {
     if (dashMatch) {
       const phrase = dashMatch[1].trim();
       const meaning = dashMatch[2].trim();
+      console.log('Using fallback example generation for dash format');
       return [{
         phrase,
         meaning,
-        example: `"${phrase}" in context`,
+        example: generateNaturalExample(phrase),
         text: `${phrase}: ${meaning}`
       }];
     }
@@ -206,10 +208,11 @@ function mapOpenAIToCreations(data: any): Creation[] {
     // If it's just a single word/phrase, create basic structure
     const words = text.split(/\s+/);
     if (words.length <= 3) {
+      console.log('Using fallback example generation for single word');
       return [{
         phrase: text,
         meaning: "Generated slang term",
-        example: `"${text}" in context`,
+        example: generateNaturalExample(text),
         text: text
       }];
     }
@@ -219,12 +222,32 @@ function mapOpenAIToCreations(data: any): Creation[] {
   }
   
   // Fallback: treat as phrase with basic meaning
+  const phrase = text.split(/[:.]/)[0].trim();
+  console.log('Using fallback example generation for general fallback');
   return [{
-    phrase: text.split(/[:.]/)[0].trim(),
+    phrase,
     meaning: text.includes(':') ? text.split(':')[1].trim() : "Generated slang term",
-    example: `"${text.split(/[:.]/)[0].trim()}" in context`,
+    example: generateNaturalExample(phrase),
     text: text
   }];
+}
+
+// Helper function to generate natural example sentences
+function generateNaturalExample(phrase: string): string {
+  const templates = [
+    `That party was so ${phrase}!`,
+    `You're being really ${phrase} right now`,
+    `I can't believe how ${phrase} that was`,
+    `This new song is absolutely ${phrase}`,
+    `She's looking super ${phrase} today`,
+    `The concert was totally ${phrase}`,
+    `That outfit is so ${phrase}`,
+    `His performance was incredibly ${phrase}`
+  ];
+  
+  // Select a random template
+  const template = templates[Math.floor(Math.random() * templates.length)];
+  return template;
 }
 
 function errJson(status: number, error: string, detail: string, reason: string, extra: Record<string, unknown> = {}) {
@@ -663,6 +686,21 @@ Generate 1-3 original slang phrases that are:
 - Age-appropriate for ${enforcedParams.ageBand}
 - School-safe: ${enforcedParams.schoolSafe}
 - Fun and engaging
+
+IMPORTANT EXAMPLE FORMATTING:
+- Examples should be natural conversational sentences without quotes
+- Show realistic usage in conversation
+- Examples like "That party was so flexi!" not "flexi in context"
+- Make examples sound like real teen/young adult speech
+
+GOOD EXAMPLES:
+- "That concert was absolutely fire!"
+- "She's looking super cute today"
+- "This new song is totally vibes"
+
+BAD EXAMPLES:
+- "fire in context"
+- '"fire" is used to describe something'
 
 Return valid JSON matching the schema exactly.`;
 
