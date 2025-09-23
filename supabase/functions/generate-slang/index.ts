@@ -7,6 +7,48 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// ==== DIAGNOSTICS: 429 ERROR SOURCE IDENTIFICATION ====
+function pickHeaders(h: Headers | undefined | null) {
+  if (!h?.get) return {};
+  const keys = [
+    "x-request-id",
+    "openai-model",
+    "x-ratelimit-remaining-requests",
+    "x-ratelimit-reset-requests",
+    "x-ratelimit-remaining-tokens",
+    "x-ratelimit-reset-tokens",
+    "retry-after"
+  ];
+  const out: any = {};
+  for (const k of keys) { 
+    const v = h.get(k); 
+    if (v) out[k] = v; 
+  }
+  return out;
+}
+
+function diagPayload(e: any, source: "openai"|"supabase"|"proxy"|"unknown", statusFallback = 429) {
+  const status = e?.status ?? e?.response?.status ?? statusFallback;
+  const headers = pickHeaders(e?.response?.headers);
+  return {
+    status,
+    // Preserve existing fields; UI reads these today:
+    error: (e?.error ?? "upstream_error"),
+    detail: String(e?.message ?? e),
+    // Add diagnostics (safe extra field):
+    diag: { source, status, headers }
+  };
+}
+
+function diagResponse(e: any, source: "openai"|"supabase"|"proxy"|"unknown", statusFallback = 429) {
+  const payload = diagPayload(e, source, statusFallback);
+  console.error("[generate-slang diag]", payload);
+  return new Response(JSON.stringify(payload), {
+    status: payload.status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
+
 // ==== PHASE 1: INFLIGHT TRACKING & SINGLE-FLIGHT PROTECTION ====
 const inflight = new Map<string, { promise: Promise<any>, started: number }>();
 const locks = new Map<string, { promise: Promise<void>, started: number }>();
@@ -74,26 +116,20 @@ async function withSingleFlight<T>(userKey: string, fn: () => Promise<T>, timeou
   }
 }
 
-// ==== PHASE 4: HEADER-AWARE PACING ====
-async function applyRateLimitPacing(response: Response): Promise<void> {
-  try {
-    const reqRemain = Number(response.headers.get("x-ratelimit-remaining-requests") ?? 999);
-    const reqResetS = Number(response.headers.get("x-ratelimit-reset-requests") ?? 0);
-    const tokRemain = Number(response.headers.get("x-ratelimit-remaining-tokens") ?? 999);
-    const tokResetS = Number(response.headers.get("x-ratelimit-reset-tokens") ?? 0);
-    
-    console.log(`Rate limit status: ${reqRemain} requests, ${tokRemain} tokens remaining`);
-    
-    // Apply pacing if near limits
-    if (reqRemain <= 1 || tokRemain <= 1) {
-      const resetMs = Math.max(reqResetS, tokResetS) * 1000;
-      const delayMs = Math.min(15000, Math.max(1000, resetMs)); // 1s-15s range
-      
-      console.log(`Applying rate limit pacing: ${delayMs}ms delay`);
-      await new Promise(resolve => setTimeout(resolve, delayMs));
-    }
-  } catch (error) {
-    console.log('Rate limit pacing failed:', error);
+// ==== PHASE 4: ENHANCED HEADER-AWARE PACING ====
+async function applyRateLimitPacing(resp: Response) {
+  const reqRemain = Number(resp.headers.get("x-ratelimit-remaining-requests") ?? 0);
+  const reqResetS = Number(resp.headers.get("x-ratelimit-reset-requests") ?? 0);
+  const tokRemain = Number(resp.headers.get("x-ratelimit-remaining-tokens") ?? 0);
+  const tokResetS = Number(resp.headers.get("x-ratelimit-reset-tokens") ?? 0);
+  const resetMs = Math.max(reqResetS, tokResetS) * 1000;
+  
+  console.log(`Rate limit status: ${reqRemain} requests, ${tokRemain} tokens remaining`);
+  
+  if ((reqRemain <= 1 || tokRemain <= 1) && resetMs > 0) {
+    const delayMs = Math.min(15000, resetMs);
+    console.log(`Applying rate limit pacing: ${delayMs}ms delay`);
+    await new Promise(r => setTimeout(r, delayMs));
   }
 }
 
@@ -449,8 +485,9 @@ Return valid JSON matching the schema exactly.`;
   let tokensIn = 0;
   let tokensOut = 0;
 
+  let resp: Response | null = null;
   try {
-    const response = await withBackoff(async () => {
+    resp = await withBackoff(async () => {
       attempts++;
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -462,17 +499,17 @@ Return valid JSON matching the schema exactly.`;
       });
 
       if (!res.ok) {
-        const error = new Error(`OpenAI API error: ${res.status}`);
-        (error as any).status = res.status;
-        (error as any).response = { headers: res.headers };
-        throw error;
+        const e: any = new Error(`OpenAI ${res.status}`);
+        e.status = res.status;
+        e.response = res;
+        throw e;
       }
 
       return res;
     });
 
     // Apply header-aware pacing after successful request
-    await applyRateLimitPacing(response);
+    await applyRateLimitPacing(resp);
 
     const data = await response.json();
     const usage = data.usage;
@@ -494,17 +531,9 @@ Return valid JSON matching the schema exactly.`;
       tokensOut
     };
 
-  } catch (error) {
-    console.error('OpenAI generation failed:', error);
-    
-    // Return fallback content
-    const fallbackCreations = getFallbackCreations(vibeTags[0]);
-    return {
-      creations: fallbackCreations,
-      isFromAI: false,
-      error: error.message,
-      attempts
-    };
+  } catch (e: any) {
+    // Identify as OpenAI path
+    throw diagResponse(e, "openai");
   }
 }
 
@@ -680,15 +709,19 @@ serve(async (req) => {
 
     // Input moderation
     const inputText = `${vibeTags.join(' ')} ${context || ''} ${format || ''}`;
-    const moderation = await moderateInput(inputText);
-    if (moderation.flagged) {
-      return new Response(JSON.stringify({
-        error: 'Input contains inappropriate content. Please try different terms.',
-        categories: moderation.categories
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    try {
+      const moderation = await moderateInput(inputText);
+      if (moderation.flagged) {
+        return new Response(JSON.stringify({
+          error: 'Input contains inappropriate content. Please try different terms.',
+          categories: moderation.categories
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    } catch (e: any) {
+      return diagResponse(e, "openai");
     }
 
     // (1) DERIVE IDEMPOTENCY + USER KEY
@@ -703,29 +736,43 @@ serve(async (req) => {
     // Authentication
     const authHeader = req.headers.get('authorization');
     if (authHeader) {
-      const supabase = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      );
+      try {
+        const supabase = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        );
 
-      const token = authHeader.replace('Bearer ', '');
-      const { data: { user } } = await supabase.auth.getUser(token);
-      
-      if (user) {
-        userId = user.id;
-
-        // Get user profile info
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('plan, role')
-          .eq('user_id', userId)
-          .single();
-
-        userPlan = profile?.plan || 'free';
-        userRole = profile?.role || 'member';
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user } } = await supabase.auth.getUser(token);
         
-        // Get server-side age policy
-        serverAgePolicy = await getServerAgePolicy(userId);
+        if (user) {
+          userId = user.id;
+
+          // Get user profile info
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('plan, role')
+            .eq('user_id', userId)
+            .single();
+
+          userPlan = profile?.plan || 'free';
+          userRole = profile?.role || 'member';
+          
+          // Get server-side age policy
+          serverAgePolicy = await getServerAgePolicy(userId);
+        } else {
+          serverAgePolicy = {
+            ageBand: '11-13',
+            requireSchoolSafe: true,
+            maxCreativity: 0.6,
+            allowedFormats: ['word', 'short_phrase'],
+            allowedContexts: ['homework', 'food', 'sports', 'gaming', 'music', 'generic'],
+            canShare: false
+          };
+        }
+      } catch (e: any) {
+        return diagResponse(e, "supabase");
+      }
       } else {
         serverAgePolicy = {
           ageBand: '11-13',
@@ -958,13 +1005,8 @@ serve(async (req) => {
       inflight.delete(idempotencyKey);
     }
 
-  } catch (error) {
-    console.error('Error in generate-slang function:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message || 'Internal server error' 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+  } catch (e: any) {
+    // Global error handler - catch any unexpected errors
+    return diagResponse(e, "unknown", 500);
   }
 });
