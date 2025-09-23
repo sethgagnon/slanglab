@@ -147,7 +147,7 @@ export const APISourceManagement = () => {
   }
 
   const googleSource = sources.find(s => s.source_name === 'google_cse');
-  const serpApiSource = sources.find(s => s.source_name === 'serpapi');
+  const serpApiSource = sources.find(s => s.source_name === 'SerpAPI');
 
   return (
     <Card>
