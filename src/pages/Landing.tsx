@@ -138,6 +138,28 @@ const Landing = () => {
               <Sparkles className="h-6 w-6 text-primary" />
               <h1 className="text-xl font-bold">SlangLab</h1>
             </div>
+            
+            {/* Main Navigation */}
+            <nav className="hidden md:flex items-center space-x-6">
+              <Link to="/lookup" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
+                Decoder
+              </Link>
+              <Link to="/slang-lab" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
+                Creator
+              </Link>
+              <Link to="/pricing" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
+                Pricing
+              </Link>
+              <Link to="/leaderboard" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
+                Leaderboard
+              </Link>
+              {user && (
+                <Link to="/account?tab=history" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
+                  History
+                </Link>
+              )}
+            </nav>
+            
             <div className="flex items-center space-x-2">
               {loading ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
