@@ -183,6 +183,13 @@ function mapOpenAIToCreations(data: any): Creation[] {
     if (colonMatch) {
       const phrase = colonMatch[1].trim();
       const meaning = colonMatch[2].trim();
+      
+      // Validate the phrase is legitimate slang, not prompt echo
+      if (!isValidSlangPhrase(phrase)) {
+        console.log(`Invalid slang phrase detected in colon format: ${phrase}`);
+        throw new Error('Invalid response from AI - contains prompt echo');
+      }
+      
       console.log('Using fallback example generation for colon format');
       return [{
         phrase,
@@ -196,6 +203,13 @@ function mapOpenAIToCreations(data: any): Creation[] {
     if (dashMatch) {
       const phrase = dashMatch[1].trim();
       const meaning = dashMatch[2].trim();
+      
+      // Validate the phrase is legitimate slang, not prompt echo
+      if (!isValidSlangPhrase(phrase)) {
+        console.log(`Invalid slang phrase detected in dash format: ${phrase}`);
+        throw new Error('Invalid response from AI - contains prompt echo');
+      }
+      
       console.log('Using fallback example generation for dash format');
       return [{
         phrase,
@@ -208,6 +222,12 @@ function mapOpenAIToCreations(data: any): Creation[] {
     // If it's just a single word/phrase, create basic structure
     const words = text.split(/\s+/);
     if (words.length <= 3) {
+      // Validate the phrase is legitimate slang, not prompt echo
+      if (!isValidSlangPhrase(text)) {
+        console.log(`Invalid slang phrase detected in single word: ${text}`);
+        throw new Error('Invalid response from AI - contains prompt echo');
+      }
+      
       console.log('Using fallback example generation for single word');
       return [{
         phrase: text,
@@ -230,6 +250,41 @@ function mapOpenAIToCreations(data: any): Creation[] {
     example: generateNaturalExample(phrase),
     text: text
   }];
+}
+
+// Common prompt words that should never be treated as slang
+const PROMPT_WORDS = [
+  'context', 'format', 'vibe', 'generate', 'creative', 'unique', 'engaging',
+  'age-appropriate', 'school-safe', 'fun', 'original', 'slang', 'phrases',
+  'return', 'valid', 'json', 'schema', 'exactly', 'examples', 'conversational',
+  'realistic', 'usage', 'teen', 'young', 'adult', 'speech', 'good', 'bad'
+];
+
+// Validate if a phrase is legitimate slang (not prompt echo)
+function isValidSlangPhrase(phrase: string): boolean {
+  if (!phrase || phrase.trim().length < 2) return false;
+  
+  const trimmed = phrase.trim().toLowerCase();
+  
+  // Filter out common prompt words
+  if (PROMPT_WORDS.includes(trimmed)) {
+    console.log(`Filtering out prompt word: ${phrase}`);
+    return false;
+  }
+  
+  // Filter out phrases that look like prompt structure
+  if (trimmed.includes(':') && (trimmed.startsWith('context') || trimmed.startsWith('format') || trimmed.startsWith('vibe'))) {
+    console.log(`Filtering out prompt structure: ${phrase}`);
+    return false;
+  }
+  
+  // Must be reasonable length for slang
+  if (trimmed.length > 30) {
+    console.log(`Filtering out overly long phrase: ${phrase}`);
+    return false;
+  }
+  
+  return true;
 }
 
 // Helper function to generate natural example sentences
@@ -687,22 +742,29 @@ Generate 1-3 original slang phrases that are:
 - School-safe: ${enforcedParams.schoolSafe}
 - Fun and engaging
 
-IMPORTANT EXAMPLE FORMATTING:
+CRITICAL INSTRUCTIONS:
+- NEVER echo or repeat the prompt content in your response
+- DO NOT use words like "Context", "Format", "Vibe" as slang phrases
+- Generate only original, creative slang terms that teens would actually use
 - Examples should be natural conversational sentences without quotes
-- Show realistic usage in conversation
-- Examples like "That party was so flexi!" not "flexi in context"
-- Make examples sound like real teen/young adult speech
+- Show realistic usage in conversation like "That party was so flexi!" not "flexi in context"
 
-GOOD EXAMPLES:
-- "That concert was absolutely fire!"
+STRICTLY FORBIDDEN - DO NOT INCLUDE:
+- Any prompt words like "Context: sports" or "Format: word"
+- System instructions or meta-commentary
+- Explanations about what you're doing
+
+GOOD SLANG EXAMPLES:
+- "brazy" meaning crazy/wild
+- "no cap" meaning no lie/for real  
+- "periodt" meaning period/end of discussion
+
+GOOD EXAMPLE SENTENCES:
+- "That concert was absolutely brazy!"
 - "She's looking super cute today"
-- "This new song is totally vibes"
+- "This new song is totally fire"
 
-BAD EXAMPLES:
-- "fire in context"
-- '"fire" is used to describe something'
-
-Return valid JSON matching the schema exactly.`;
+Return ONLY valid JSON matching the schema exactly with original slang phrases.`;
 
   const requestBody = {
     model: "gpt-5-mini-2025-08-07",
