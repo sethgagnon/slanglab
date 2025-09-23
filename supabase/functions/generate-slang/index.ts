@@ -1189,9 +1189,9 @@ serve(async (req) => {
           return new Response(JSON.stringify({
             success: true,
             creations: cachedResult,
-            message: 'Generated successfully (optimized)',
+            message: 'Generated successfully (cached)',
             cached: true,
-            isFromAI: false
+            isFromAI: false // This is truly cached content, not AI generated
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
@@ -1218,9 +1218,9 @@ serve(async (req) => {
           return new Response(JSON.stringify({
             success: true,
             creations: cacheEntry.phrases,
-            message: 'Generated successfully (optimized)',
+            message: 'Generated successfully (cached)',
             cached: true,
-            isFromAI: false
+            isFromAI: false // This is truly cached content, not AI generated
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
@@ -1259,14 +1259,67 @@ serve(async (req) => {
 
         await shortPace(resp); // small, safe pause if near limits
         const data = await resp.json();
-        const creations = mapOpenAIToCreations(data);
-        if (!creations.length) {
-          return errJson(502, "upstream_empty", "OpenAI returned no usable content.", "openai_empty", { model: data?.model });
+        let creations;
+        try {
+          creations = mapOpenAIToCreations(data);
+          if (!creations.length) {
+            return errJson(502, "upstream_empty", "OpenAI returned no usable content.", "openai_empty", { model: data?.model });
+          }
+        } catch (error) {
+          console.error('Failed to parse OpenAI response:', error);
+          // Retry with more explicit instructions
+          const retryResp = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: `${systemSafe}\n\nIMPORTANT: Respond ONLY with valid JSON in this exact format:\n${slangJsonSchema}` },
+                { role: "user", content: userMsg }
+              ],
+              temperature,
+              max_tokens: 200
+            })
+          });
+          
+          if (retryResp.ok) {
+            const retryData = await retryResp.json();
+            try {
+              creations = mapOpenAIToCreations(retryData);
+            } catch (retryError) {
+              console.error('Retry also failed, using fallback');
+              return errJson(502, "upstream_parse_failed", "AI returned invalid format", "openai_parse_error");
+            }
+          } else {
+            return errJson(502, "upstream_parse_failed", "AI returned invalid format", "openai_parse_error");
+          }
         }
 
-        return new Response(JSON.stringify({ creations }), {
+        // Save to cache and database for authenticated users
+        if (userId) {
+          await saveToRecentCache(supabase, recentCacheKey, creations);
+          await saveCreationsToDatabase(userId, vibeTagsForCache[0], creations);
+          await updateGenerationLimits(userId);
+        }
+
+        await logAICall(supabase, {
+          userId: userId || getUserKey(req),
+          clientIp: getUserKey(req, userId).startsWith('ip:') ? getUserKey(req, userId).substring(3) : undefined,
+          model: 'gpt-4o-mini',
+          attempts: attempts,
           status: 200,
-          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          wasCached: false,
+          wasCoalesced: false
+        });
+
+        return new Response(JSON.stringify({
+          success: true,
+          creations,
+          message: 'AI generated successfully!',
+          cached: false,
+          isFromAI: true
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       });
     })();

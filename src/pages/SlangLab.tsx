@@ -345,9 +345,14 @@ const SlangLab = () => {
       setCreations(mockCreationsWithIds);
       
       // Set generation status for user feedback
+      const isFromAI = data.isFromAI !== undefined ? data.isFromAI : true; // Default to AI if not specified
+      const successMessage = data.cached ? 
+        'Generated successfully (cached)' : 
+        'AI generated successfully!';
+      
       setGenerationStatus({
-        isFromAI: data.isFromAI || false,
-        message: data.message || 'Slang generated successfully!',
+        isFromAI,
+        message: data.message || successMessage,
         canRetry: data.canRetry || false
       });
       } catch (error: any) {
