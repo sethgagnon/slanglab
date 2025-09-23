@@ -21,6 +21,32 @@ interface PlanConfig {
   };
 }
 
+export const FREE_PLAN_CONFIG: PlanConfig = {
+  name: 'Free',
+  priceId: '',
+  monthlyPrice: 0,
+  annualPrice: 0,
+  features: [
+    '1 search per day',
+    '1 AI creation per week',
+    '3 manual creations per week',
+    'Basic search history',
+    'Community support'
+  ],
+  popularFeatures: [
+    'Perfect for trying out',
+    'No credit card required',
+    'Evidence-based results'
+  ],
+  limits: {
+    searches: '1 per day',
+    aiCreations: '1 per week',
+    manualCreations: '3 per week',
+    tracking: false,
+    analytics: false
+  }
+};
+
 export const PLAN_CONFIGS: Record<'SearchPro' | 'LabPro', PlanConfig> = {
   SearchPro: {
     name: 'SearchPro',

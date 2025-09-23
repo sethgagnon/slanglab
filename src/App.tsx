@@ -11,6 +11,7 @@ import SlangLab from "./pages/SlangLab";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
 import Leaderboard from "./pages/Leaderboard";
+import Pricing from "./pages/Pricing";
 import SlangDetail from "./pages/SlangDetail";
 import TermDetail from "./pages/TermDetail";
 import ProMentions from "./pages/ProMentions";
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/account" element={<Account />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route path="/pricing" element={<Pricing />} />
             <Route path="/slang/:id" element={<SlangDetail />} />
             <Route path="/t/:slug" element={<TermDetail />} />
             <Route path="/pro/mentions" element={<ProMentions />} />

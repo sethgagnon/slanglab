@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Check, Crown, Users, Zap, TrendingUp, Star, BarChart3 } from 'lucide-react';
-import { PLAN_CONFIGS, calculateSavings } from '@/lib/upgradeFlow';
+import { PLAN_CONFIGS, FREE_PLAN_CONFIG, calculateSavings } from '@/lib/upgradeFlow';
 import { StreamlinedCheckout } from '@/components/ui/streamlined-checkout';
 
 interface EnhancedPlanComparisonProps {

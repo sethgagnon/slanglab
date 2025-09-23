@@ -233,7 +233,16 @@ const Lookup = () => {
           
           <nav className="hidden md:flex items-center space-x-6">
             <Link to="/lookup" className="text-sm font-medium">
-              Lookup
+              Decoder
+            </Link>
+            <Link to="/slang-lab" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Creator
+            </Link>
+            <Link to="/pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Pricing
+            </Link>
+            <Link to="/leaderboard" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Leaderboard
             </Link>
             <Link to="/slang-lab" className="text-sm font-medium text-muted-foreground hover:text-foreground">
               Creator
