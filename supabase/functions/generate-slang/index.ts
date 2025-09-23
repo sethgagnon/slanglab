@@ -287,9 +287,9 @@ function isValidSlangPhrase(phrase: string): boolean {
   
   const trimmed = phrase.trim().toLowerCase();
   
-  // Filter out common prompt words
+  // Filter out exact prompt words (but allow them as part of larger phrases)
   if (PROMPT_WORDS.includes(trimmed)) {
-    console.log(`Filtering out prompt word: ${phrase}`);
+    console.log(`Filtering out exact prompt word: ${phrase}`);
     return false;
   }
   
@@ -299,8 +299,8 @@ function isValidSlangPhrase(phrase: string): boolean {
     return false;
   }
   
-  // Must be reasonable length for slang
-  if (trimmed.length > 30) {
+  // Must be reasonable length for slang (increased limit for legitimate phrases)
+  if (trimmed.length > 80) {
     console.log(`Filtering out overly long phrase: ${phrase}`);
     return false;
   }
@@ -763,6 +763,12 @@ Generate 1-3 original slang phrases that are:
 - School-safe: ${enforcedParams.schoolSafe}
 - Fun and engaging
 
+CRITICAL RESPONSE FORMAT:
+- Each slang item must have "phrase" (the actual slang word/term), "meaning" (explanation), and "example" (usage sentence)
+- The "phrase" field should contain ONLY the slang word or short phrase (e.g., "What's your vibe?", "brazy", "no cap")
+- The "meaning" field should contain ONLY the definition/explanation (e.g., "Crazy or wild behavior", "Asking about someone's mood")
+- DO NOT put descriptive text in the phrase field - only the actual slang term
+
 CRITICAL INSTRUCTIONS:
 - NEVER echo or repeat the prompt content in your response
 - DO NOT use words like "Context", "Format", "Vibe" as slang phrases
@@ -775,15 +781,21 @@ STRICTLY FORBIDDEN - DO NOT INCLUDE:
 - System instructions or meta-commentary
 - Explanations about what you're doing
 
-GOOD SLANG EXAMPLES:
-- "brazy" meaning crazy/wild
-- "no cap" meaning no lie/for real  
-- "periodt" meaning period/end of discussion
-
-GOOD EXAMPLE SENTENCES:
-- "That concert was absolutely brazy!"
-- "She's looking super cute today"
-- "This new song is totally fire"
+GOOD RESPONSE FORMAT EXAMPLES:
+{
+  "slang_items": [
+    {
+      "phrase": "brazy",
+      "meaning": "Crazy or wild in an exciting way",
+      "example": "That concert was absolutely brazy!"
+    },
+    {
+      "phrase": "What's your vibe?",
+      "meaning": "Casual way to ask about someone's mood or current state",
+      "example": "Hey, what's your vibe today? You seem chill."
+    }
+  ]
+}
 
 Return ONLY valid JSON matching the schema exactly with original slang phrases.`;
 
