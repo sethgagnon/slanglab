@@ -620,7 +620,7 @@ serve(async (req) => {
           maxCreativity: 0.6,
           allowedFormats: ['word', 'short_phrase'],
           allowedContexts: ['homework', 'food', 'sports', 'gaming', 'music', 'generic'],
-          canShare: false
+          canShare: false,
         };
       }
     } else {
