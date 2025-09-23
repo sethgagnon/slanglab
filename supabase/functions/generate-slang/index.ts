@@ -29,6 +29,136 @@ function pruneOldEntries() {
   }
 }
 
+// ===== CACHE AND LOGGING HELPERS =====
+
+// Generate stable cache key for request parameters
+function generateCacheKey(params: {
+  prompt: string;
+  vibe: string;
+  ageBand: string;
+  model: string;
+  context?: string;
+  format?: string;
+}): string {
+  const keyData = `${params.prompt}|${params.vibe}|${params.ageBand}|${params.model}|${params.context || ''}|${params.format || ''}`;
+  
+  // Create stable hash
+  let hash = 0;
+  for (let i = 0; i < keyData.length; i++) {
+    const char = keyData.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return `gen_${Math.abs(hash).toString(36)}`;
+}
+
+// Check recent generations cache
+async function checkRecentCache(supabase: any, cacheKey: string): Promise<any | null> {
+  try {
+    const { data, error } = await supabase
+      .from('recent_generations')
+      .select('*')
+      .eq('key', cacheKey)
+      .gt('expires_at', new Date().toISOString())
+      .single();
+    
+    if (error || !data) {
+      return null;
+    }
+    
+    // Parse cached result
+    return JSON.parse(data.text);
+  } catch (error) {
+    console.log('Cache lookup failed:', error);
+    return null;
+  }
+}
+
+// Save to recent generations cache
+async function saveToRecentCache(
+  supabase: any, 
+  cacheKey: string, 
+  result: any, 
+  model: string, 
+  usage: any
+): Promise<void> {
+  try {
+    const expiresAt = new Date(Date.now() + 90 * 1000).toISOString();
+    
+    await supabase
+      .from('recent_generations')
+      .upsert({
+        key: cacheKey,
+        text: JSON.stringify(result),
+        model,
+        usage: usage || {},
+        expires_at: expiresAt
+      });
+  } catch (error) {
+    console.log('Cache save failed:', error);
+    // Don't throw - caching failures shouldn't break generation
+  }
+}
+
+// Apply rate limit pacing based on OpenAI headers
+async function applyRateLimitPacing(response: Response): Promise<void> {
+  try {
+    const reqRemain = Number(response.headers.get("x-ratelimit-remaining-requests") ?? 999);
+    const reqResetS = Number(response.headers.get("x-ratelimit-reset-requests") ?? 0);
+    const tokRemain = Number(response.headers.get("x-ratelimit-remaining-tokens") ?? 999);
+    const tokResetS = Number(response.headers.get("x-ratelimit-reset-tokens") ?? 0);
+    
+    console.log(`Rate limit status: ${reqRemain} requests, ${tokRemain} tokens remaining`);
+    
+    // Apply pacing if near limits
+    if (reqRemain <= 1 || tokRemain <= 1) {
+      const resetMs = Math.max(reqResetS, tokResetS) * 1000;
+      const delayMs = Math.min(15000, Math.max(1000, resetMs)); // 1s-15s range
+      
+      console.log(`Applying rate limit pacing: ${delayMs}ms delay`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  } catch (error) {
+    console.log('Rate limit pacing failed:', error);
+    // Don't throw - pacing failures shouldn't break generation
+  }
+}
+
+// Enhanced AI call logging
+async function logAICall(
+  supabase: any,
+  params: {
+    userId?: string;
+    clientIp?: string;
+    tokensIn?: number;
+    tokensOut?: number;
+    model: string;
+    attempts: number;
+    status: number;
+    wasCached: boolean;
+    wasCoalesced: boolean;
+  }
+): Promise<void> {
+  try {
+    await supabase
+      .from('ai_call_logs')
+      .insert({
+        user_id: params.userId,
+        client_ip: params.clientIp,
+        tokens_in: params.tokensIn,
+        tokens_out: params.tokensOut,
+        model: params.model,
+        attempts: params.attempts,
+        status: params.status,
+        was_cached: params.wasCached,
+        was_coalesced: params.wasCoalesced
+      });
+  } catch (error) {
+    console.log('AI call logging failed:', error);
+    // Don't throw - logging failures shouldn't break generation
+  }
+}
+
 // Generate stable hash from request parameters
 function generateIdempotencyKey(params: { vibeTags: string[], context: string, format: string, ageBand?: string }): string {
   const normalized = {
@@ -548,6 +678,11 @@ serve(async (req) => {
           Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         );
         
+        // Variables for logging
+        let wasCached = false;
+        let wasCoalesced = false;
+        let attempts = 1;
+        
         if (userId) {
           // Get user profile info
           const { data: profile } = await supabase
@@ -650,12 +785,67 @@ serve(async (req) => {
 
     console.log('Enforced parameters:', enforcedParams);
 
-    // Smart cache strategy check
+    // Generate cache key for 90-second cache
+    const recentCacheKey = generateCacheKey({
+      prompt: vibeTags.join(','),
+      vibe: vibeTags[0],
+      ageBand: enforcedParams.ageBand,
+      model: 'gpt-5-mini-2025-08-07',
+      context: enforcedParams.context,
+      format: enforcedParams.format
+    });
+
+    // Check 90-second cache first (after idempotency/single-flight)
+    const cachedResult = await checkRecentCache(supabase, recentCacheKey);
+    if (cachedResult) {
+      console.log('Using 90s cached content for user:', userId);
+      wasCached = true;
+      
+      // Log cache hit
+      await logAICall(supabase, {
+        userId: userId || getUserKey(req),
+        clientIp: getUserKey(req, userId).startsWith('ip:') ? getUserKey(req, userId).substring(3) : undefined,
+        model: 'gpt-5-mini-2025-08-07',
+        attempts: 0,
+        status: 200,
+        wasCached: true,
+        wasCoalesced: false
+      });
+      
+      return new Response(
+        JSON.stringify({
+          success: true,
+          creations: cachedResult,
+          message: 'Generated successfully (optimized)',
+          cached: true,
+          isFromAI: false
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200 
+        }
+      );
+    }
+
+    // Smart cache strategy check (fallback cache)
     const cacheKey = vibeTags.join(',');
     const { shouldUseCache, cacheEntry } = await checkCacheStrategy(userId, cacheKey, userPlan, userRole);
     
     if (shouldUseCache && cacheEntry) {
-      console.log('Using cached content for user:', userId);
+      console.log('Using long-term cached content for user:', userId);
+      wasCached = true;
+      
+      // Log cache hit
+      await logAICall(supabase, {
+        userId: userId || getUserKey(req),
+        clientIp: getUserKey(req, userId).startsWith('ip:') ? getUserKey(req, userId).substring(3) : undefined,
+        model: 'gpt-5-mini-2025-08-07',
+        attempts: 0,
+        status: 200,
+        wasCached: true,
+        wasCoalesced: false
+      });
+      
       return new Response(
         JSON.stringify({
           success: true,
@@ -673,8 +863,11 @@ serve(async (req) => {
 
     // Generate fresh AI content with age-aware parameters
     console.log('Generating fresh AI content for user:', userId);
-    const result = await generateSlang(vibeTags, context, format, enforcedParams);
+    const result = await generateSlang(vibeTags, context, format, enforcedParams, supabase, recentCacheKey);
     console.log('Generated result:', result);
+    
+    // Track attempts for logging
+    attempts = result.attempts || 1;
 
     // Moderate the generated content
     const moderatedCreations = await moderateCreations(result.creations);
@@ -697,6 +890,19 @@ serve(async (req) => {
       cached: shouldUseCache
     };
     console.info('SlangLab Analytics:', JSON.stringify(analytics));
+
+    // Enhanced structured logging
+    await logAICall(supabase, {
+      userId: userId || getUserKey(req),
+      clientIp: getUserKey(req, userId).startsWith('ip:') ? getUserKey(req, userId).substring(3) : undefined,
+      tokensIn: result.tokensIn,
+      tokensOut: result.tokensOut,
+      model: 'gpt-5-mini-2025-08-07',
+      attempts: attempts,
+      status: 200,
+      wasCached: wasCached,
+      wasCoalesced: wasCoalesced
+    });
 
     // Save to database if user is authenticated
     if (userId) {
@@ -740,9 +946,65 @@ serve(async (req) => {
 
           console.log('Anonymous user enforced parameters:', enforcedParams);
 
+          // Create supabase client for anonymous operations
+          const supabase = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+          );
+
+          // Generate cache key for anonymous users
+          const recentCacheKey = generateCacheKey({
+            prompt: vibeTags.join(','),
+            vibe: vibeTags[0],
+            ageBand: enforcedParams.ageBand,
+            model: 'gpt-5-mini-2025-08-07',
+            context: enforcedParams.context,
+            format: enforcedParams.format
+          });
+
+          // Check cache for anonymous users
+          const cachedResult = await checkRecentCache(supabase, recentCacheKey);
+          if (cachedResult) {
+            console.log('Using 90s cached content for anonymous user');
+            
+            // Log cache hit for anonymous user
+            await logAICall(supabase, {
+              userId: getUserKey(req),
+              clientIp: getUserKey(req).startsWith('ip:') ? getUserKey(req).substring(3) : undefined,
+              model: 'gpt-5-mini-2025-08-07',
+              attempts: 0,
+              status: 200,
+              wasCached: true,
+              wasCoalesced: false
+            });
+            
+            return new Response(JSON.stringify({
+              success: true,
+              creations: cachedResult,
+              message: 'Generated successfully (optimized)',
+              cached: true,
+              isFromAI: false
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+
           // Generate content with fallback for anonymous users
-          const result = await generateSlang(vibeTags, context, format, enforcedParams);
+          const result = await generateSlang(vibeTags, context, format, enforcedParams, supabase, recentCacheKey);
           const moderatedCreations = await moderateCreations(result.creations);
+
+          // Enhanced structured logging for anonymous users
+          await logAICall(supabase, {
+            userId: getUserKey(req),
+            clientIp: getUserKey(req).startsWith('ip:') ? getUserKey(req).substring(3) : undefined,
+            tokensIn: result.tokensIn,
+            tokensOut: result.tokensOut,
+            model: 'gpt-5-mini-2025-08-07',
+            attempts: result.attempts || 1,
+            status: 200,
+            wasCached: false,
+            wasCoalesced: false
+          });
 
           const response = {
             creations: moderatedCreations,
@@ -924,8 +1186,10 @@ async function generateSlang(
     creativity: number;
     schoolSafe: boolean;
   },
+  supabase: any,
+  cacheKey: string,
   retryCount = 0
-): Promise<{ creations: any[], isFromAI: boolean, error?: string }> {
+): Promise<{ creations: any[], isFromAI: boolean, error?: string, attempts?: number }> {
   const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
   if (!openaiApiKey) {
     console.error('OpenAI API key not configured');
@@ -1015,6 +1279,9 @@ Focus on creating fresh, authentic slang that captures the combined "${vibePromp
     });
     const apiCallEnd = Date.now();
 
+    // Apply header-aware pacing before processing response
+    await applyRateLimitPacing(response);
+    
     const data = await response.json();
     const content = data.choices[0].message.content;
     
@@ -1065,7 +1332,23 @@ Focus on creating fresh, authentic slang that captures the combined "${vibePromp
       }
       
       console.log(`Successfully generated ${validCreations.length} fresh AI content items`);
-      return { creations: validCreations, isFromAI: true };
+      
+      // Save to 90-second cache
+      await saveToRecentCache(
+        supabase, 
+        cacheKey, 
+        validCreations, 
+        'gpt-5-mini-2025-08-07', 
+        data.usage
+      );
+      
+      return { 
+        creations: validCreations, 
+        isFromAI: true, 
+        attempts: retryCount + 1,
+        tokensIn: data.usage?.prompt_tokens || 0,
+        tokensOut: data.usage?.completion_tokens || 0
+      };
     } catch (parseError) {
       console.error('Failed to parse OpenAI response:', content);
       

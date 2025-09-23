@@ -41,6 +41,48 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_call_logs: {
+        Row: {
+          attempts: number | null
+          client_ip: string | null
+          created_at: string
+          id: string
+          model: string
+          status: number
+          tokens_in: number | null
+          tokens_out: number | null
+          user_id: string | null
+          was_cached: boolean | null
+          was_coalesced: boolean | null
+        }
+        Insert: {
+          attempts?: number | null
+          client_ip?: string | null
+          created_at?: string
+          id?: string
+          model: string
+          status: number
+          tokens_in?: number | null
+          tokens_out?: number | null
+          user_id?: string | null
+          was_cached?: boolean | null
+          was_coalesced?: boolean | null
+        }
+        Update: {
+          attempts?: number | null
+          client_ip?: string | null
+          created_at?: string
+          id?: string
+          model?: string
+          status?: number
+          tokens_in?: number | null
+          tokens_out?: number | null
+          user_id?: string | null
+          was_cached?: boolean | null
+          was_coalesced?: boolean | null
+        }
+        Relationships: []
+      }
       alerts: {
         Row: {
           created_at: string
@@ -776,6 +818,33 @@ export type Database = {
           plan?: string | null
           role?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      recent_generations: {
+        Row: {
+          created_at: string
+          expires_at: string
+          key: string
+          model: string
+          text: string
+          usage: Json | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          key: string
+          model: string
+          text: string
+          usage?: Json | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          key?: string
+          model?: string
+          text?: string
+          usage?: Json | null
         }
         Relationships: []
       }
