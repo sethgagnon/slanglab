@@ -187,6 +187,11 @@ const VIBES = {
   'food': 'Create food-inspired slang phrases that blend culinary culture with modern language. Focus on cooking, flavors, and food experiences. Use appetizing metaphors and food culture references in a fun, clean way.',
   'compliment': 'Generate fresh compliment phrases that sound genuine and positive. Focus on personality traits, talents, and positive characteristics. Use uplifting metaphors and encouraging language.',
   'gentle-roast': 'Create witty but affectionate teasing phrases that show friendship through gentle humor. Think harmless, endearing observations about quirks and habits. Keep it loving and fun without any mean-spirited content.',
+  'goofy': 'Generate playfully silly and lighthearted slang phrases that capture humor and fun. Focus on amusing situations, quirky behaviors, and endearing goofiness. Use whimsical wordplay while keeping content appropriate and joyful.',
+  'academic': 'Create intellectually inspired slang phrases that blend learning and creativity. Focus on study culture, academic achievements, and scholarly pursuits. Use clever academic references and educational metaphors in a fun, approachable way.',
+  'gamer': 'Generate gaming-inspired slang phrases that capture video game culture and digital experiences. Focus on achievements, gameplay moments, and gaming community language. Use creative gaming metaphors while keeping content inclusive.',
+  'artsy': 'Create artistic and creative slang phrases that celebrate self-expression and creativity. Focus on artistic pursuits, creative processes, and aesthetic experiences. Use imaginative metaphors and creative language.',
+  'sportsy': 'Generate sports-inspired slang phrases that capture athletic culture and team spirit. Focus on competition, teamwork, achievements, and sporting moments. Use dynamic sports metaphors while promoting positive sportsmanship.',
 };
 
 // Age-specific safety prompts
