@@ -119,13 +119,6 @@ export type Database = {
             foreignKeyName: "alerts_term_id_fkey"
             columns: ["term_id"]
             isOneToOne: false
-            referencedRelation: "public_terms"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "alerts_term_id_fkey"
-            columns: ["term_id"]
-            isOneToOne: false
             referencedRelation: "terms"
             referencedColumns: ["id"]
           },
@@ -599,13 +592,6 @@ export type Database = {
             foreignKeyName: "favorites_term_id_fkey"
             columns: ["term_id"]
             isOneToOne: false
-            referencedRelation: "public_terms"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "favorites_term_id_fkey"
-            columns: ["term_id"]
-            isOneToOne: false
             referencedRelation: "terms"
             referencedColumns: ["id"]
           },
@@ -739,13 +725,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "lookups_term_id_fkey"
-            columns: ["term_id"]
-            isOneToOne: false
-            referencedRelation: "public_terms"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "lookups_term_id_fkey"
             columns: ["term_id"]
@@ -898,13 +877,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "reports_term_id_fkey"
-            columns: ["term_id"]
-            isOneToOne: false
-            referencedRelation: "public_terms"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "reports_term_id_fkey"
             columns: ["term_id"]
@@ -1103,13 +1075,6 @@ export type Database = {
             foreignKeyName: "senses_term_id_fkey"
             columns: ["term_id"]
             isOneToOne: false
-            referencedRelation: "public_terms"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "senses_term_id_fkey"
-            columns: ["term_id"]
-            isOneToOne: false
             referencedRelation: "terms"
             referencedColumns: ["id"]
           },
@@ -1159,13 +1124,6 @@ export type Database = {
           url?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "sightings_term_id_fkey"
-            columns: ["term_id"]
-            isOneToOne: false
-            referencedRelation: "public_terms"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "sightings_term_id_fkey"
             columns: ["term_id"]
@@ -1365,13 +1323,6 @@ export type Database = {
             foreignKeyName: "term_variants_term_id_fkey"
             columns: ["term_id"]
             isOneToOne: false
-            referencedRelation: "public_terms"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "term_variants_term_id_fkey"
-            columns: ["term_id"]
-            isOneToOne: false
             referencedRelation: "terms"
             referencedColumns: ["id"]
           },
@@ -1444,13 +1395,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "trackers_term_id_fkey"
-            columns: ["term_id"]
-            isOneToOne: true
-            referencedRelation: "public_terms"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "trackers_term_id_fkey"
             columns: ["term_id"]
@@ -1551,57 +1495,7 @@ export type Database = {
       }
     }
     Views: {
-      public_creator_stats: {
-        Row: {
-          activity_level: string | null
-          created_at: string | null
-          total_creations: number | null
-          user_id: string | null
-        }
-        Insert: {
-          activity_level?: never
-          created_at?: string | null
-          total_creations?: number | null
-          user_id?: string | null
-        }
-        Update: {
-          activity_level?: never
-          created_at?: string | null
-          total_creations?: number | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      public_terms: {
-        Row: {
-          created_at: string | null
-          creator_type: string | null
-          id: string | null
-          normalized_text: string | null
-          original_text: string | null
-          slug: string | null
-          text: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          creator_type?: never
-          id?: string | null
-          normalized_text?: string | null
-          original_text?: string | null
-          slug?: string | null
-          text?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          creator_type?: never
-          id?: string | null
-          normalized_text?: string | null
-          original_text?: string | null
-          slug?: string | null
-          text?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       anonymize_ip: {
@@ -1636,6 +1530,13 @@ export type Database = {
       get_age_policy: {
         Args: { target_user_id: string }
         Returns: Json
+      }
+      get_anonymous_term_info: {
+        Args: { term_slug: string }
+        Returns: {
+          meaning_summary: string
+          term_text: string
+        }[]
       }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
