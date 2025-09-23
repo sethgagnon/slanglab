@@ -758,6 +758,7 @@ serve(async (req) => {
           canShare: false,
         };
       }
+    }
     } else {
       // No authentication - default to safest policy
       serverAgePolicy = {
@@ -766,7 +767,7 @@ serve(async (req) => {
         maxCreativity: 0.6,
         allowedFormats: ['word', 'short_phrase'],
         allowedContexts: ['homework', 'food', 'sports', 'gaming', 'music', 'generic'],
-        canShare: false
+        canShare: false,
       };
     }
 
