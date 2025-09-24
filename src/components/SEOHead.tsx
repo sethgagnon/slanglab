@@ -18,7 +18,7 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
   description = 'Get evidence-based definitions with confidence scores, safety labels, and citations. Ideal for parents, teachers, and anyone navigating today\'s slang.',
   keywords = 'slang, decoder, dictionary, modern slang, teen language, slang creator, confidence scores, safety labels',
   image = 'https://lovable.dev/opengraph-image-p98pqg.png',
-  url = 'https://slang-decoder-lab.lovable.app',
+  url = 'https://slanglab.app',
   type = 'website',
   author = 'SlangLab',
   publishedTime,
@@ -116,12 +116,12 @@ export const createWebsiteSchema = () => ({
   "@type": "WebSite",
   "name": "SlangLab",
   "description": "Evidence-based slang decoder and creator platform",
-  "url": "https://slang-decoder-lab.lovable.app",
+  "url": "https://slanglab.app",
   "potentialAction": {
     "@type": "SearchAction",
     "target": {
       "@type": "EntryPoint",
-      "urlTemplate": "https://slang-decoder-lab.lovable.app/lookup?q={search_term_string}"
+      "urlTemplate": "https://slanglab.app/lookup?q={search_term_string}"
     },
     "query-input": "required name=search_term_string"
   }
@@ -140,7 +140,7 @@ export const createSlangEntrySchema = (slang: {
   "description": slang.meaning,
   "text": slang.example,
   "dateCreated": slang.created_at,
-  "url": `https://slang-decoder-lab.lovable.app/slang/${slang.id}`,
+  "url": `https://slanglab.app/slang/${slang.id}`,
   "creator": {
     "@type": "Organization",
     "name": "SlangLab Community"
@@ -154,8 +154,8 @@ export const createOrganizationSchema = () => ({
   "@type": "Organization",
   "name": "SlangLab",
   "description": "Evidence-based slang decoder and creator platform",
-  "url": "https://slang-decoder-lab.lovable.app",
-  "logo": "https://slang-decoder-lab.lovable.app/favicon.ico",
+  "url": "https://slanglab.app",
+  "logo": "https://slanglab.app/favicon.ico",
   "foundingDate": "2025",
   "applicationCategory": "Educational Technology",
   "operatingSystem": "Web Browser"
