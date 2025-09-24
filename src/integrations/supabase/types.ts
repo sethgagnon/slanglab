@@ -1560,6 +1560,18 @@ export type Database = {
           text: string
         }[]
       }
+      get_secure_profile_data: {
+        Args: { profile_user_id: string }
+        Returns: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          plan: string
+          role: string
+          user_id: string
+        }[]
+      }
       get_secure_user_profile: {
         Args: { target_user_id: string }
         Returns: {
