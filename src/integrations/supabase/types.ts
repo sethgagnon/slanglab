@@ -1527,6 +1527,18 @@ export type Database = {
         Args: { birth_date_input: string }
         Returns: string
       }
+      get_admin_safe_profile_data: {
+        Args: { profile_user_id: string }
+        Returns: {
+          created_at: string
+          email_masked: string
+          id: string
+          name: string
+          plan: string
+          role: string
+          user_id: string
+        }[]
+      }
       get_age_policy: {
         Args: { target_user_id: string }
         Returns: Json
